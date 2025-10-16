@@ -1,6 +1,6 @@
 'use client';
 
-import { useCollection, useDoc } from '@/firebase';
+import { useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { useMemo } from 'react';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
@@ -26,13 +26,13 @@ export default function ClientDetailPage({ params }: { params: { clientId: strin
   const { clientId } = params;
   const firestore = useFirestore();
 
-  const userDocRef = useMemo(
+  const userDocRef = useMemoFirebase(
     () => (firestore && clientId ? doc(firestore, 'users', clientId) : null),
     [firestore, clientId]
   );
   const { data: user, isLoading: isUserLoading } = useDoc<any>(userDocRef);
 
-  const simulationsQuery = useMemo(
+  const simulationsQuery = useMemoFirebase(
     () =>
       firestore && clientId
         ? query(collection(firestore, `users/${clientId}/simulations`), orderBy('simulationDate', 'desc'))

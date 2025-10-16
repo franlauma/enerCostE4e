@@ -1,6 +1,6 @@
 'use client';
 
-import { useCollection } from '@/firebase';
+import { useCollection, useMemoFirebase } from '@/firebase';
 import { useMemo } from 'react';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
@@ -23,7 +23,7 @@ import { ArrowRight } from 'lucide-react';
 export default function ClientsPage() {
   const firestore = useFirestore();
 
-  const usersQuery = useMemo(
+  const usersQuery = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'users'), orderBy('lastName', 'asc')) : null),
     [firestore]
   );
