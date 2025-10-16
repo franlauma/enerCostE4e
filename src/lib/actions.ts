@@ -12,7 +12,7 @@ type ActionResponse = {
   success: boolean;
   data?: SimulationResult;
   error?: string;
-  helpMessage?: string;
+  helpMessage?: string | null;
 };
 
 export async function simulateCost(formData: FormData): Promise<ActionResponse> {

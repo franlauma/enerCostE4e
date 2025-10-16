@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { simulateCost } from '@/lib/actions';
-import type { SimulationResult } from '@/lib/data';
+import { MOCK_SIMULATION_RESULT, type SimulationResult } from '@/lib/data';
 
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
@@ -44,6 +44,12 @@ export default function Home() {
     }
   };
 
+  const handleDemo = async () => {
+    setState({ status: 'loading', data: null, error: null, helpMessage: null });
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setState({ status: 'success', data: MOCK_SIMULATION_RESULT, error: null, helpMessage: null });
+  };
+
   const handleReset = () => {
     setState({ status: 'idle', data: null, error: null, helpMessage: null });
   };
@@ -60,6 +66,7 @@ export default function Home() {
           <div className="flex items-center justify-center w-full min-h-[calc(100vh-20rem)]">
             <FileUploadForm
               onFileUpload={handleSimulation}
+              onDemo={handleDemo}
               isLoading={state.status === 'loading'}
             />
           </div>

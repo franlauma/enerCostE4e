@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { UploadCloud, File, X, Loader2 } from 'lucide-react';
+import { UploadCloud, File, X, Loader2, TestTube2 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 const formSchema = z.object({
   file: z.instanceof(File).refine(file => file.size > 0, 'Por favor, selecciona un archivo.'),
@@ -16,10 +17,11 @@ const formSchema = z.object({
 
 type FileUploadFormProps = {
   onFileUpload: (formData: FormData) => void;
+  onDemo: () => void;
   isLoading: boolean;
 };
 
-export default function FileUploadForm({ onFileUpload, isLoading }: FileUploadFormProps) {
+export default function FileUploadForm({ onFileUpload, onDemo, isLoading }: FileUploadFormProps) {
   const [dragActive, setDragActive] = useState(false);
   const [fileName, setFileName] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -55,7 +57,7 @@ export default function FileUploadForm({ onFileUpload, isLoading }: FileUploadFo
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
     if (e.target.files && e.target.files[0]) {
-      form.setValue('file', e.target.files[0]);
+      form.setValue('file', e.dataTransfer.files[0]);
       setFileName(e.target.files[0].name);
       form.trigger('file');
     }
@@ -138,7 +140,7 @@ export default function FileUploadForm({ onFileUpload, isLoading }: FileUploadFo
               )}
             />
             <Button type="submit" className="w-full text-lg py-6" disabled={isLoading || !form.formState.isValid}>
-              {isLoading ? (
+              {isLoading && fileName ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Analizando...
@@ -147,6 +149,26 @@ export default function FileUploadForm({ onFileUpload, isLoading }: FileUploadFo
                 'Analizar Costes'
               )}
             </Button>
+            
+            <div className="relative">
+                <Separator className="absolute top-1/2 -translate-y-1/2" />
+                <p className="relative text-center bg-card text-muted-foreground text-sm w-fit mx-auto px-2">¿No tienes una factura a mano?</p>
+            </div>
+
+            <Button type="button" variant="secondary" className="w-full text-base py-6" onClick={onDemo} disabled={isLoading}>
+                {isLoading && !fileName ? (
+                    <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Cargando demo...
+                    </>
+                ) : (
+                    <>
+                        <TestTube2 className="mr-2 h-5 w-5" />
+                        Probar con factura demo
+                    </>
+                )}
+            </Button>
+
           </form>
         </Form>
       </CardContent>
