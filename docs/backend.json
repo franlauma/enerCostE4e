@@ -1,0 +1,118 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the EnerCost Analyzer application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "First name of the user."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Last name of the user."
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "firstName",
+        "lastName"
+      ]
+    },
+    "Simulation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Simulation",
+      "type": "object",
+      "description": "Represents a single energy cost simulation session.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Simulation entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Simulation)"
+        },
+        "simulationDate": {
+          "type": "string",
+          "description": "Date and time the simulation was run.",
+          "format": "date-time"
+        },
+        "inputFileName": {
+          "type": "string",
+          "description": "The name of the Excel file uploaded for the simulation."
+        },
+        "results": {
+          "type": "string",
+          "description": "JSON string containing the simulation results."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "simulationDate",
+        "inputFileName",
+        "results"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. User IDs are used as document IDs. This path enforces private user data.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/simulations/{simulationId}",
+        "definition": {
+          "entityName": "Simulation",
+          "schema": {
+            "$ref": "#/backend/entities/Simulation"
+          },
+          "description": "Stores simulation data for each user.  The path enforces that only the owning user can access their simulations.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "simulationId",
+              "description": "The unique identifier of the simulation."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability. User data is stored under `/users/{userId}`, providing a clear ownership model. Simulations, which belong to users, are stored under `/users/{userId}/simulations/{simulationId}`. This hierarchical path enforces clear ownership and simplifies security rules.  The structure avoids `get()` calls in security rules by denormalizing authorization context. For the current requirements no denormalization is needed as all data is private to the user.\n\nThe chosen structure is also tailored to support secure `list` operations (QAPs). Path-based ownership ensures that listing simulations under `/users/{userId}/simulations` is secure without needing complex filtering in rules; only the authenticated user can access their own simulations."
+  }
+}
