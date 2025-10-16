@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useAuth, useFirestore } from '@/firebase';
-import { initiateEmailSignUp } from '@/firebase/non-blocking-login';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useRouter } from 'next/navigation';
@@ -54,6 +53,10 @@ export default function SignupPage() {
     }, [errors.root, toast]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!auth || !firestore) {
+        form.setError('root', { type: 'manual', message: 'Los servicios de autenticación no están disponibles.' });
+        return;
+    }
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
@@ -66,6 +69,7 @@ export default function SignupPage() {
             firstName: values.firstName,
             lastName: values.lastName
         };
+        // This function is non-blocking, but we are sure the user exists now.
         setDocumentNonBlocking(userDocRef, userData, { merge: true });
         
         toast({
