@@ -4,8 +4,6 @@ import { useState } from 'react';
 import { simulateCost } from '@/lib/actions';
 import { MOCK_SIMULATION_RESULT, type SimulationResult } from '@/lib/data';
 
-import Header from '@/components/layout/header';
-import Footer from '@/components/layout/footer';
 import FileUploadForm from '@/components/dashboard/file-upload-form';
 import ResultsDashboard from '@/components/dashboard/results-dashboard';
 import { useToast } from '@/hooks/use-toast';
@@ -59,8 +57,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
-      <Header />
+    <div className="flex flex-col flex-1">
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 py-8 md:px-6 md:py-12">
         {state.status !== 'success' ? (
           <div className="flex items-center justify-center w-full min-h-[calc(100vh-20rem)]">
@@ -74,7 +71,6 @@ export default function Home() {
           <ResultsDashboard result={state.data!} onReset={handleReset} />
         )}
       </main>
-      <Footer />
       {state.helpMessage && (
          <ContextualHelp 
             defaultOpen={true} 

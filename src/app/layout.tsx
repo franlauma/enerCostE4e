@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
+import Header from '@/components/layout/header';
+import Footer from '@/components/layout/footer';
 
 export const metadata: Metadata = {
   title: 'EnerCost Analyzer',
@@ -23,8 +25,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className={cn('font-body antialiased', 'min-h-screen bg-background')}>
+      <body className={cn('font-body antialiased', 'min-h-screen bg-background flex flex-col')}>
+        <Header />
         {children}
+        <Footer />
         <Toaster />
       </body>
     </html>

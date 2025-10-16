@@ -4,9 +4,10 @@ import type { SimulationResult } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, FileDown, TrendingUp, Zap } from 'lucide-react';
+import { ArrowLeft, FileDown, TrendingUp, Zap, PieChart } from 'lucide-react';
 import CostComparisonTable from './cost-comparison-table';
 import CostComparisonChart from './cost-comparison-chart';
+import CostBreakdownChart from './cost-breakdown-chart';
 
 type ResultsDashboardProps = {
   result: SimulationResult;
@@ -38,6 +39,8 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
     document.body.removeChild(link);
   };
 
+  const bestOptionData = result.details.find(d => d.rank === 1);
+
   return (
     <div className="w-full space-y-8 animate-in fade-in-50 duration-500">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
@@ -54,7 +57,7 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Mejor Opción</CardTitle>
@@ -83,6 +86,15 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
           <CardContent>
             <div className="text-2xl font-bold">{result.summary.totalKwh.toLocaleString('es-ES')} kWh</div>
             <p className="text-xs text-muted-foreground">Periodo: {result.summary.period}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Desglose Mejor Opción</CardTitle>
+            <PieChart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {bestOptionData && <CostBreakdownChart data={bestOptionData} />}
           </CardContent>
         </Card>
       </div>

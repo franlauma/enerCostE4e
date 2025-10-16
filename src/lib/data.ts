@@ -77,3 +77,19 @@ export const MOCK_SIMULATION_RESULT: SimulationResult = {
     },
   ],
 };
+
+export type Tariff = {
+  id: string;
+  companyName: string;
+  priceKwh: number;
+  fixedTerm: number;
+  promo: string;
+};
+
+export const MOCK_TARIFFS: Tariff[] = [
+    { id: '1', companyName: 'EcoLuz', priceKwh: 0.13, fixedTerm: 5.00, promo: '20% dto. 6 meses' },
+    { id: '2', companyName: 'Energía Clara', priceKwh: 0.148, fixedTerm: 4.58, promo: 'Precio fijo' },
+    { id: '3', companyName: 'Solaria Power', priceKwh: 0.142, fixedTerm: 5.42, promo: 'Sin permanencia' },
+    { id: '4', companyName: 'Tu Compañía Actual', priceKwh: 0.20, fixedTerm: 5.83, promo: 'Tarifa Base' },
+    { id: '5', companyName: 'Iberdrola', priceKwh: 0.18, fixedTerm: 6.67, promo: 'Plan Noche' },
+];
