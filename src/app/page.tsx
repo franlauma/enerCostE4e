@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { simulateCost } from '@/lib/actions';
 import { MOCK_SIMULATION_RESULT, type SimulationResult } from '@/lib/data';
+import { useUser, useFirestore } from '@/firebase';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { collection, serverTimestamp } from 'firebase/firestore';
 
 import FileUploadForm from '@/components/dashboard/file-upload-form';
 import ResultsDashboard from '@/components/dashboard/results-dashboard';
@@ -14,6 +17,7 @@ type SimulationState = {
   data: SimulationResult | null;
   error: string | null;
   helpMessage: string | null;
+  fileName: string | null;
 };
 
 export default function Home() {
@@ -22,18 +26,40 @@ export default function Home() {
     data: null,
     error: null,
     helpMessage: null,
+    fileName: null,
   });
   const { toast } = useToast();
+  const { user } = useUser();
+  const firestore = useFirestore();
 
   const handleSimulation = async (formData: FormData) => {
-    setState({ status: 'loading', data: null, error: null, helpMessage: null });
+    const file = formData.get('file') as File;
+    const fileName = file?.name || 'unknown_file';
+    setState({ status: 'loading', data: null, error: null, helpMessage: null, fileName });
     const result = await simulateCost(formData);
 
     if (result.success && result.data) {
-      setState({ status: 'success', data: result.data, error: null, helpMessage: null });
+      setState({ status: 'success', data: result.data, error: null, helpMessage: null, fileName });
+      
+      // If user is logged in, save simulation to Firestore
+      if (user && firestore) {
+        const simulationData = {
+            userId: user.uid,
+            simulationDate: serverTimestamp(),
+            inputFileName: fileName,
+            results: JSON.stringify(result.data) // Store results as a JSON string
+        };
+        const simulationsColRef = collection(firestore, `users/${user.uid}/simulations`);
+        addDocumentNonBlocking(simulationsColRef, simulationData);
+        toast({
+          title: 'Simulación Guardada',
+          description: 'El resultado ha sido guardado en tu historial.',
+        });
+      }
+
     } else {
       const errorMessage = result.error || 'Ocurrió un error inesperado.';
-      setState({ status: 'error', data: null, error: errorMessage, helpMessage: result.helpMessage || null });
+      setState({ status: 'error', data: null, error: errorMessage, helpMessage: result.helpMessage || null, fileName: null });
       toast({
         variant: 'destructive',
         title: 'Error en la simulación',
@@ -43,13 +69,13 @@ export default function Home() {
   };
 
   const handleDemo = async () => {
-    setState({ status: 'loading', data: null, error: null, helpMessage: null });
+    setState({ status: 'loading', data: null, error: null, helpMessage: null, fileName: 'factura_demo.xlsx' });
     await new Promise(resolve => setTimeout(resolve, 1500));
-    setState({ status: 'success', data: MOCK_SIMULATION_RESULT, error: null, helpMessage: null });
+    setState({ status: 'success', data: MOCK_SIMULATION_RESULT, error: null, helpMessage: null, fileName: 'factura_demo.xlsx' });
   };
 
   const handleReset = () => {
-    setState({ status: 'idle', data: null, error: null, helpMessage: null });
+    setState({ status: 'idle', data: null, error: null, helpMessage: null, fileName: null });
   };
   
   const handleHelpClose = () => {

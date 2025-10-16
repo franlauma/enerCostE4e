@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
+import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
   title: 'EnerCost Analyzer',
@@ -26,10 +27,12 @@ export default function RootLayout({
         />
       </head>
       <body className={cn('font-body antialiased', 'min-h-screen bg-background flex flex-col')}>
-        <Header />
-        {children}
-        <Footer />
-        <Toaster />
+        <FirebaseClientProvider>
+          <Header />
+          {children}
+          <Footer />
+          <Toaster />
+        </FirebaseClientProvider>
       </body>
     </html>
   );

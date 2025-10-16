@@ -2,7 +2,8 @@ import Link from 'next/link';
 import Logo from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Menu, SlidersHorizontal } from 'lucide-react';
+import { Menu } from 'lucide-react';
+import AuthButton from '@/components/auth/auth-button';
 
 const NavLinks = () => (
   <>
@@ -11,6 +12,9 @@ const NavLinks = () => (
     </Button>
     <Button asChild variant="ghost">
       <Link href="/tariffs">Tarifas</Link>
+    </Button>
+    <Button asChild variant="ghost">
+      <Link href="/clients">Clientes</Link>
     </Button>
   </>
 );
@@ -30,7 +34,8 @@ export default function Header() {
           <NavLinks />
         </nav>
 
-        <div className="flex flex-1 items-center justify-end">
+        <div className="flex flex-1 items-center justify-end space-x-2">
+          <AuthButton />
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden">
