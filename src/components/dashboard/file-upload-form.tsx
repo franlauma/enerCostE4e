@@ -12,7 +12,9 @@ import { UploadCloud, File, X, Loader2, TestTube2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 const formSchema = z.object({
-  file: z.instanceof(File).refine(file => file.size > 0, 'Por favor, selecciona un archivo.'),
+  file: z
+    .any()
+    .refine((file) => file instanceof File && file.size > 0, 'Por favor, selecciona un archivo.'),
 });
 
 type FileUploadFormProps = {
@@ -57,7 +59,7 @@ export default function FileUploadForm({ onFileUpload, onDemo, isLoading }: File
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
     if (e.target.files && e.target.files[0]) {
-      form.setValue('file', e.dataTransfer.files[0]);
+      form.setValue('file', e.target.files[0]);
       setFileName(e.target.files[0].name);
       form.trigger('file');
     }
