@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Logo from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetTrigger, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Menu, SlidersHorizontal } from 'lucide-react';
 
 const NavLinks = () => (
@@ -39,15 +39,19 @@ export default function Header() {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-[240px]">
-              <div className="flex flex-col h-full">
-                <div className="flex items-center space-x-2 border-b pb-4 mb-4">
-                  <Logo className="h-6 w-6" />
-                  <span className="font-headline text-lg font-bold">EnerCost</span>
+                <SheetHeader className="border-b pb-4 mb-4">
+                  <SheetTitle>
+                    <Link href="/" className="flex items-center space-x-2">
+                        <Logo className="h-6 w-6" />
+                        <span className="font-headline text-lg font-bold">EnerCost</span>
+                    </Link>
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="flex flex-col h-full">
+                  <nav className="flex flex-col space-y-2">
+                      <NavLinks />
+                  </nav>
                 </div>
-                <nav className="flex flex-col space-y-2">
-                    <NavLinks />
-                </nav>
-              </div>
             </SheetContent>
           </Sheet>
         </div>
