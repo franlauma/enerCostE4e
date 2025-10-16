@@ -18,6 +18,7 @@ type SimulationState = {
   error: string | null;
   helpMessage: string | null;
   fileName: string | null;
+  aiSummary: string | null;
 };
 
 export default function Home() {
@@ -27,6 +28,7 @@ export default function Home() {
     error: null,
     helpMessage: null,
     fileName: null,
+    aiSummary: null,
   });
   const { toast } = useToast();
   const { user } = useUser();
@@ -35,11 +37,11 @@ export default function Home() {
   const handleSimulation = async (formData: FormData) => {
     const file = formData.get('file') as File;
     const fileName = file?.name || 'unknown_file';
-    setState({ status: 'loading', data: null, error: null, helpMessage: null, fileName });
+    setState({ status: 'loading', data: null, error: null, helpMessage: null, fileName, aiSummary: null });
     const result = await simulateCost(formData);
 
     if (result.success && result.data) {
-      setState({ status: 'success', data: result.data, error: null, helpMessage: null, fileName });
+      setState({ status: 'success', data: result.data, error: null, helpMessage: null, fileName, aiSummary: result.aiSummary ?? null });
       
       // If user is logged in, save simulation to Firestore
       if (user && firestore) {
@@ -59,7 +61,7 @@ export default function Home() {
 
     } else {
       const errorMessage = result.error || 'Ocurrió un error inesperado.';
-      setState({ status: 'error', data: null, error: errorMessage, helpMessage: result.helpMessage || null, fileName: null });
+      setState({ status: 'error', data: null, error: errorMessage, helpMessage: result.helpMessage || null, fileName: null, aiSummary: null });
       toast({
         variant: 'destructive',
         title: 'Error en la simulación',
@@ -69,13 +71,15 @@ export default function Home() {
   };
 
   const handleDemo = async () => {
-    setState({ status: 'loading', data: null, error: null, helpMessage: null, fileName: 'factura_demo.xlsx' });
+    setState({ status: 'loading', data: null, error: null, helpMessage: null, fileName: 'factura_demo.xlsx', aiSummary: null });
+    // Simulate API call for AI summary
+    const aiSummary = `¡Buenas noticias! Basado en tu consumo, hemos determinado que **EcoLuz** es tu opción más económica. Cambiándote, podrías **ahorrar aproximadamente 250,75 € al año** en comparación con tu tarifa actual.`;
     await new Promise(resolve => setTimeout(resolve, 1500));
-    setState({ status: 'success', data: MOCK_SIMULATION_RESULT, error: null, helpMessage: null, fileName: 'factura_demo.xlsx' });
+    setState({ status: 'success', data: MOCK_SIMULATION_RESULT, error: null, helpMessage: null, fileName: 'factura_demo.xlsx', aiSummary });
   };
 
   const handleReset = () => {
-    setState({ status: 'idle', data: null, error: null, helpMessage: null, fileName: null });
+    setState({ status: 'idle', data: null, error: null, helpMessage: null, fileName: null, aiSummary: null });
   };
   
   const handleHelpClose = () => {
@@ -94,7 +98,7 @@ export default function Home() {
             />
           </div>
         ) : (
-          <ResultsDashboard result={state.data!} onReset={handleReset} />
+          <ResultsDashboard result={state.data!} aiSummary={state.aiSummary} onReset={handleReset} />
         )}
       </main>
       {state.helpMessage && (

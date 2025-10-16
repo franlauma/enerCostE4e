@@ -4,17 +4,18 @@ import type { SimulationResult } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, FileDown, TrendingUp, Zap, PieChart } from 'lucide-react';
+import { ArrowLeft, FileDown, TrendingUp, Zap, PieChart, Sparkles } from 'lucide-react';
 import CostComparisonTable from './cost-comparison-table';
 import CostComparisonChart from './cost-comparison-chart';
 import CostBreakdownChart from './cost-breakdown-chart';
 
 type ResultsDashboardProps = {
   result: SimulationResult;
+  aiSummary: string | null;
   onReset: () => void;
 };
 
-export default function ResultsDashboard({ result, onReset }: ResultsDashboardProps) {
+export default function ResultsDashboard({ result, aiSummary, onReset }: ResultsDashboardProps) {
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value);
@@ -41,6 +42,17 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
 
   const bestOptionData = result.details.find(d => d.rank === 1);
 
+  // A simple markdown-to-html converter for bold text
+  const renderSummary = (text: string) => {
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={index}>{part.slice(2, -2)}</strong>;
+        }
+        return part;
+    });
+  }
+
   return (
     <div className="w-full space-y-8 animate-in fade-in-50 duration-500">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
@@ -56,6 +68,20 @@ export default function ResultsDashboard({ result, onReset }: ResultsDashboardPr
             </Button>
         </div>
       </div>
+      
+      {aiSummary && (
+        <Card className="bg-primary/10 border-primary/40">
+          <CardHeader>
+            <CardTitle className="font-headline flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Resumen Ejecutivo de IA
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-foreground/80 leading-relaxed">{renderSummary(aiSummary)}</p>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
