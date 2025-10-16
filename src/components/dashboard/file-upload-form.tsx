@@ -14,7 +14,8 @@ import { Separator } from '@/components/ui/separator';
 const formSchema = z.object({
   file: z
     .any()
-    .refine((file) => file instanceof File && file.size > 0, 'Por favor, selecciona un archivo.'),
+    // A file has a `size` property which is a number.
+    .refine((file) => file?.size > 0, 'Por favor, selecciona un archivo.'),
 });
 
 type FileUploadFormProps = {

@@ -5,7 +5,7 @@ import { MOCK_SIMULATION_RESULT, type SimulationResult } from '@/lib/data';
 import { getContextualHelp } from '@/ai/flows/contextual-assistance';
 
 const formSchema = z.object({
-  file: z.any().refine(file => file instanceof File && file.size > 0, 'El archivo no puede estar vacío.'),
+  file: z.any().refine(file => file?.size > 0, 'El archivo no puede estar vacío.'),
 });
 
 type ActionResponse = {
