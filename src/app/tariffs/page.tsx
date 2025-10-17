@@ -27,7 +27,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useUser } from '@/firebase';
 import { collection, query, addDoc, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -52,13 +52,16 @@ const EMPTY_TARIFF: Omit<Tariff, 'id'> = {
 
 export default function TariffsPage() {
   const firestore = useFirestore();
+  const { isUserLoading } = useUser(); // Get user loading state
+
   const tariffsQuery = useMemo(() => {
-    if (!firestore) return null;
+    // Wait until Firebase is ready and user auth state is determined
+    if (!firestore || isUserLoading) return null;
     const q = query(collection(firestore, 'tariffs'));
     // This is a temporary workaround to satisfy the memoization check in useCollection
     (q as any).__memo = true;
     return q;
-  }, [firestore]);
+  }, [firestore, isUserLoading]);
 
   const { data: tariffs, isLoading: areTariffsLoading, error } = useCollection<Tariff>(tariffsQuery);
 
@@ -248,7 +251,7 @@ export default function TariffsPage() {
   )
 
   const renderTariffRows = () => {
-    if (areTariffsLoading) {
+    if (areTariffsLoading || isUserLoading) {
       return Array.from({ length: 4 }).map((_, i) => (
         <TableRow key={i}>
             <TableCell><Skeleton className="h-5 w-24" /></TableCell>
