@@ -69,18 +69,13 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     // Check if it's a CSV or Excel file
     if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
          try {
-            // Attempt to decode with different common encodings
-            const decoders = [
-                new TextDecoder('utf-8'),
-                new TextDecoder('latin1'),
-                new TextDecoder('windows-1252'),
-            ];
+            const decoders = [ new TextDecoder('utf-8'), new TextDecoder('latin1'), new TextDecoder('windows-1252') ];
             let decodedText = '';
             let lastError: any = null;
             for (const decoder of decoders) {
                 try {
                     decodedText = decoder.decode(buffer);
-                    if (decodedText.includes(';')) {
+                    if (decodedText.includes(';')) { // Simple check
                         lastError = null;
                         break; 
                     }
@@ -109,31 +104,39 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
         throw new Error("Formato de archivo no soportado. Por favor, sube un archivo Excel o CSV.");
     }
 
-    const lecturasHeaderIndex = rawData.findIndex(row => row.some(cell => typeof cell === 'string' && cell.includes('Datos lecturas')));
+    const cleanedData = rawData.map(row => row.map(cell => typeof cell === 'string' ? cell.trim() : cell)).filter(row => row.length > 0 && row.some(cell => cell));
+
+    // Find sections
+    const suministroHeaderIndex = cleanedData.findIndex(row => row.some(cell => typeof cell === 'string' && cell.includes('Datos suministro')));
+    const lecturasHeaderIndex = cleanedData.findIndex(row => row.some(cell => typeof cell === 'string' && cell.includes('Datos lecturas')));
 
     if (lecturasHeaderIndex === -1) {
         throw new Error("No se encontró la sección 'Datos lecturas' en el archivo.");
     }
+    if (suministroHeaderIndex === -1) {
+        throw new Error("No se encontró la sección 'Datos suministro' en el archivo.");
+    }
 
-    const headersRowIndex = lecturasHeaderIndex + 2;
-    const dataRows = rawData.slice(headersRowIndex + 1);
+    // --- Process consumption data ('Datos lecturas') ---
+    const lecturasHeadersRow = cleanedData[lecturasHeaderIndex + 1];
+    const lecturasDataRows = cleanedData.slice(lecturasHeaderIndex + 2);
+    
+    const lecturasHeaders: string[] = lecturasHeadersRow.map((h: any) => String(h).trim());
+    const consumoP1Index = lecturasHeaders.indexOf('Consumo Activa P1');
+    const consumoP2Index = lecturasHeaders.indexOf('Consumo Activa P2');
+    const consumoP3Index = lecturasHeaders.indexOf('Consumo Activa P3');
+    const consumoP4Index = lecturasHeaders.indexOf('Consumo Activa P4');
+    const consumoP5Index = lecturasHeaders.indexOf('Consumo Activa P5');
+    const consumoP6Index = lecturasHeaders.indexOf('Consumo Activa P6');
 
-    const headers: string[] = rawData[headersRowIndex].map((h: any) => String(h).trim());
-    const consumoP1Index = headers.indexOf('Consumo Activa P1');
-    const consumoP2Index = headers.indexOf('Consumo Activa P2');
-    const consumoP3Index = headers.indexOf('Consumo Activa P3');
-    const consumoP4Index = headers.indexOf('Consumo Activa P4');
-    const consumoP5Index = headers.indexOf('Consumo Activa P5');
-    const consumoP6Index = headers.indexOf('Consumo Activa P6');
-
-    if ([consumoP1Index, consumoP2Index, consumoP3Index, consumoP4Index, consumoP5Index, consumoP6Index].some(i => i === -1)) { // Check for P1-P6
+    if ([consumoP1Index, consumoP2Index, consumoP3Index, consumoP4Index, consumoP5Index, consumoP6Index].some(i => i === -1)) {
         throw new Error("No se encontraron las columnas de consumo ('Consumo Activa P1' a 'P6') en la sección 'Datos lecturas'.");
     }
 
     let totalKwhP1 = 0, totalKwhP2 = 0, totalKwhP3 = 0, totalKwhP4 = 0, totalKwhP5 = 0, totalKwhP6 = 0;
 
-    for (const row of dataRows) {
-        if (!row || row.length === 0 || !row[0]) continue; // Skip empty/invalid rows
+    for (const row of lecturasDataRows) {
+        if (!row || row.length === 0 || !row[0]) continue;
 
         totalKwhP1 += parseFloat(String(row[consumoP1Index]).replace(',', '.')) || 0;
         totalKwhP2 += parseFloat(String(row[consumoP2Index]).replace(',', '.')) || 0;
@@ -142,16 +145,47 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
         totalKwhP5 += parseFloat(String(row[consumoP5Index]).replace(',', '.')) || 0;
         totalKwhP6 += parseFloat(String(row[consumoP6Index]).replace(',', '.')) || 0;
     }
-
+    
     const totalKwh = totalKwhP1 + totalKwhP2 + totalKwhP3 + totalKwhP4 + totalKwhP5 + totalKwhP6;
 
     if (totalKwh === 0) {
         throw new Error("No se pudo calcular un consumo total a partir del archivo. Verifique que los datos de consumo son correctos.");
     }
+    
+    // --- Process supply data ('Datos suministro') ---
+    const suministroHeadersRow = cleanedData[suministroHeaderIndex + 1];
+    const suministroDataRow = cleanedData[suministroHeaderIndex + 2];
 
+    const suministroHeaders: string[] = suministroHeadersRow.map((h: any) => String(h).trim());
+    const potenciaP1Index = suministroHeaders.indexOf('Potencia Contratada P1');
+    const potenciaP2Index = suministroHeaders.indexOf('Potencia Contratada P2');
+    const potenciaP3Index = suministroHeaders.indexOf('Potencia Contratada P3');
+    const potenciaP4Index = suministroHeaders.indexOf('Potencia Contratada P4');
+    const potenciaP5Index = suministroHeaders.indexOf('Potencia Contratada P5');
+    const potenciaP6Index = suministroHeaders.indexOf('Potencia Contratada P6');
+
+    if ([potenciaP1Index, potenciaP2Index].some(i => i === -1)) { // At least P1 and P2 for power are common
+        throw new Error("No se encontraron las columnas de potencia contratada ('Potencia Contratada P1', 'P2', etc.) en la sección 'Datos suministro'.");
+    }
+
+    const getPotencia = (index: number) => parseFloat(String(suministroDataRow[index]).replace(',', '.')) || 0;
+
+    const potenciaContratada = {
+        p1: getPotencia(potenciaP1Index),
+        p2: getPotencia(potenciaP2Index),
+        p3: getPotencia(potenciaP3Index),
+        p4: getPotencia(potenciaP4Index),
+        p5: getPotencia(potenciaP5Index),
+        p6: getPotencia(potenciaP6Index),
+    };
+    
+    // Assume 365 days for annual calculation
+    const daysInPeriod = 365;
+
+    // --- Perform Simulation ---
     const userCurrentTariffName = 'Tu Compañía Actual';
 
-    let details: CompanyCost[] = availableTariffs.map((tariff, index) => {
+    let details: CompanyCost[] = availableTariffs.map((tariff) => {
       const consumptionCost =
         (tariff.priceKwhP1 * totalKwhP1) +
         (tariff.priceKwhP2 * totalKwhP2) +
@@ -160,11 +194,26 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
         (tariff.priceKwhP5 * totalKwhP5) +
         (tariff.priceKwhP6 * totalKwhP6);
 
-      const fixedFee = tariff.fixedTerm * 12;
+      const powerCost =
+        ((tariff.pricePowerP1 || 0) * potenciaContratada.p1 * daysInPeriod) +
+        ((tariff.pricePowerP2 || 0) * potenciaContratada.p2 * daysInPeriod) +
+        ((tariff.pricePowerP3 || 0) * potenciaContratada.p3 * daysInPeriod) +
+        ((tariff.pricePowerP4 || 0) * potenciaContratada.p4 * daysInPeriod) +
+        ((tariff.pricePowerP5 || 0) * potenciaContratada.p5 * daysInPeriod) +
+        ((tariff.pricePowerP6 || 0) * potenciaContratada.p6 * daysInPeriod);
 
-      // Otros costes (potencia, excedentes, etc. - aún por implementar)
-      const otherCosts = 25.00 + (index * 2); 
-      const totalCost = fixedFee + consumptionCost + otherCosts;
+      const fixedFee = (tariff.fixedTerm || 0) * 12;
+      
+      const otherCosts = powerCost; 
+      
+      // Impuesto Eléctrico (IE) - 0.5% (0.005), as per Spanish regulation in 2024 (it can vary)
+      const subtotal = consumptionCost + otherCosts + fixedFee;
+      const impuestoElectrico = subtotal * 0.005;
+
+      // IVA - 21%
+      const iva = (subtotal + impuestoElectrico) * 0.21;
+      
+      const totalCost = subtotal + impuestoElectrico + iva;
 
       return {
         id: tariff.id,
