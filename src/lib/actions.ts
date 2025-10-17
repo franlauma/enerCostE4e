@@ -75,7 +75,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     // Convert sheet to a 2D array to find the "Datos lecturas" section
     const rawData: any[][] = xlsx.utils.sheet_to_json(sheet, { header: 1 });
 
-    const lecturasHeaderIndex = rawData.findIndex(row => row.some(cell => cell === 'Datos lecturas'));
+    const lecturasHeaderIndex = rawData.findIndex(row => row.some(cell => typeof cell === 'string' && cell.includes('Datos lecturas')));
     
     if (lecturasHeaderIndex === -1) {
         throw new Error("No se encontró la sección 'Datos lecturas' en el archivo.");
@@ -90,9 +90,13 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     const consumoP1Index = headers.indexOf('Consumo Activa P1');
     const consumoP2Index = headers.indexOf('Consumo Activa P2');
     const consumoP3Index = headers.indexOf('Consumo Activa P3');
+    const consumoP4Index = headers.indexOf('Consumo Activa P4');
+    const consumoP5Index = headers.indexOf('Consumo Activa P5');
+    const consumoP6Index = headers.indexOf('Consumo Activa P6');
 
-    if (consumoP1Index === -1 || consumoP2Index === -1 || consumoP3Index === -1) {
-        throw new Error("No se encontraron las columnas de consumo ('Consumo Activa P1', 'P2', 'P3') en la sección 'Datos lecturas'.");
+
+    if (consumoP1Index === -1 || consumoP2Index === -1 || consumoP3Index === -1 || consumoP4Index === -1 || consumoP5Index === -1 || consumoP6Index === -1) {
+        throw new Error("No se encontraron todas las columnas de consumo ('Consumo Activa P1' a 'P6') en la sección 'Datos lecturas'.");
     }
 
     let totalKwh = 0;
@@ -102,7 +106,10 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
         const p1 = parseFloat(String(row[consumoP1Index]).replace(',', '.')) || 0;
         const p2 = parseFloat(String(row[consumoP2Index]).replace(',', '.')) || 0;
         const p3 = parseFloat(String(row[consumoP3Index]).replace(',', '.')) || 0;
-        totalKwh += p1 + p2 + p3;
+        const p4 = parseFloat(String(row[consumoP4Index]).replace(',', '.')) || 0;
+        const p5 = parseFloat(String(row[consumoP5Index]).replace(',', '.')) || 0;
+        const p6 = parseFloat(String(row[consumoP6Index]).replace(',', '.')) || 0;
+        totalKwh += p1 + p2 + p3 + p4 + p5 + p6;
     }
 
     if (totalKwh === 0) {
