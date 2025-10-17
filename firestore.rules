@@ -1,104 +1,121 @@
 /**
- * @file Firebase Security Rules for EnerCost Analyzer.
+ * @fileOverview
+ * This ruleset enforces a strict user-ownership model for user profiles and simulations,
+ * with public read access for tariffs.
  *
- * @description This ruleset enforces a user-ownership model for simulations,
- *              allowing users to only access their own simulation data. Tariff
- *              data is publicly readable but not writable in this prototype.
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles, accessible only to the owning user.
+ * - /users/{userId}/simulations/{simulationId}: Stores simulation data, accessible only to the owning user.
+ * - /tariffs/{tariffId}: Stores public tariff information, readable by all authenticated users.  Write access is not currently secured.
  *
- * @data_structure
- *   - /users/{userId}: Stores user profiles. Only the user can read/write their profile.
- *   - /users/{userId}/simulations/{simulationId}: Stores simulation data for a specific user.
- *     Only the user can read/write their own simulations.
- *   - /tariffs/{tariffId}: Stores electricity tariff information. This data is
- *     publicly readable. Writes are disabled in this prototype.
+ * Key Security Decisions:
+ * - User listing is disabled to protect user privacy.
+ * - Tariffs are publicly readable but require write protection.  Write access is currently open and must be secured.
  *
- * @key_security_decisions
- *   - User listing is disallowed.
- *   - Tariffs are publicly readable.
- *   - Strict ownership is enforced for simulations and user profiles.
- *   - No role-based access control is implemented in this prototype.
+ * Denormalization for Authorization:
+ * - The data structure inherently denormalizes the user-simulation relationship by nesting simulations under the user's document. This allows direct enforcement of ownership without needing `get()` calls.
+ *
+ * Structural Segregation:
+ * - Public tariff data is stored in a separate root-level collection (`/tariffs`) to allow for public read access without compromising user data.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profiles.
+     * @description Protects user profiles, ensuring only the owning user can read and write their own data.
      * @path /users/{userId}
-     * @allow (create) User with ID 'user123' can create their profile.
-     *   - Auth: { uid: 'user123' }
-     *   - Request: { id: 'user123', ... }
-     * @allow (get, update, delete) User with ID 'user123' can read/update/delete their profile.
-     *   - Auth: { uid: 'user123' }
-     * @deny (create) User with ID 'user456' cannot create a profile with ID 'user123'.
-     *   - Auth: { uid: 'user456' }
-     *   - Request: { id: 'user123', ... }
-     * @deny (get, update, delete) User with ID 'user456' cannot read/update/delete user 'user123' profile.
-     *   - Auth: { uid: 'user456' }
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     * @allow (create) - Authenticated user 'user_abc' can create their profile if request.auth.uid == userId.
+     * @allow (get, update, delete) - Authenticated user 'user_abc' can read, update, or delete their profile (if it exists).
+     * @deny (create) - Authenticated user 'user_xyz' cannot create a profile for user 'user_abc'.
+     * @deny (get, update, delete) - Authenticated user 'user_xyz' cannot read, update, or delete the profile of user 'user_abc'.
+     * @deny (list) - Listing all users is disallowed.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
-      // Allow the user to create their own profile if the userId in the path matches their auth.uid
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-      // Allow the user to read, update, and delete their own profile.
-      allow get, update, delete: if isSignedIn() && isExistingOwner(userId);
-      // Disallow listing all users.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource.data != null;
+      }
+
+      // Disallow listing all users
       allow list: if false;
+
+      // Only allow creating a user document if the user is signed in and the userId matches the authenticated user's ID.
+      allow create: if isSignedIn() && isOwner(userId);
+
+      // Only allow getting a user document if the user is signed in and the userId matches the authenticated user's ID.
+      allow get: if isSignedIn() && isOwner(userId);
+
+      // Only allow updating a user document if the user is signed in, the userId matches the authenticated user's ID, and the document exists
+      allow update: if isSignedIn() && isExistingOwner(userId);
+
+      // Only allow deleting a user document if the user is signed in and the userId matches the authenticated user's ID and the document exists
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to simulation data for each user.
+     * @description Protects simulation data, ensuring only the owning user can access their own simulations.
      * @path /users/{userId}/simulations/{simulationId}
-     * @allow (create) User 'user123' can create a simulation under their profile.
-     *   - Auth: { uid: 'user123' }
-     *   - Request: { userId: 'user123', ... }
-     * @allow (get, update, delete) User 'user123' can read/update/delete their own simulation.
-     *   - Auth: { uid: 'user123' }
-     * @deny (create) User 'user456' cannot create a simulation under user 'user123''s profile.
-     *   - Auth: { uid: 'user456' }
-     *   - Request: { userId: 'user123', ... }
-     * @deny (get, update, delete) User 'user456' cannot read/update/delete user 'user123' simulation.
-     *   - Auth: { uid: 'user456' }
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     * @allow (create) - Authenticated user 'user_abc' can create a simulation under their profile.
+     * @allow (get, list, update, delete) - Authenticated user 'user_abc' can read, list, update, or delete their own simulations.
+     * @deny (create) - Authenticated user 'user_xyz' cannot create a simulation under user 'user_abc''s profile.
+     * @deny (get, list, update, delete) - Authenticated user 'user_xyz' cannot read, list, update, or delete simulations under user 'user_abc''s profile.
+     * @principle Enforces document ownership for writes and reads within a user-specific subcollection.
      */
     match /users/{userId}/simulations/{simulationId} {
-      // Allow a user to create a simulation under their own user ID.
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      // Allow a user to read, update, and delete their own simulations.
-      allow get, update, delete: if isSignedIn() && isExistingOwner(userId);
-      // Allow a user to list their own simulations.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource.data != null;
+      }
+
+      // Allow listing simulations if the user is the owner.
       allow list: if isSignedIn() && isOwner(userId);
+
+      // Allow creating a simulation if the user is the owner.
+      allow create: if isSignedIn() && isOwner(userId);
+
+      // Allow getting a simulation if the user is the owner.
+      allow get: if isSignedIn() && isOwner(userId);
+
+      // Allow updating a simulation if the user is the owner and the document exists
+      allow update: if isSignedIn() && isExistingOwner(userId);
+
+      // Allow deleting a simulation if the user is the owner and the document exists
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to tariff data.
+     * @description Allows public read access to tariff data, but currently does not secure write access.
      * @path /tariffs/{tariffId}
-     * @allow (get, list) Any authenticated user can read tariff data.
-     *   - Auth: { uid: 'user123' }
-     * @deny (create, update, delete) No user can create, update, or delete tariff data in this prototype.
-     *   - Auth: { uid: 'user123' }
-     * @principle Allows public read access, restricts write access to authorized users (none in this prototype).
+     * @allow (get, list) - Any authenticated user can read tariff data.
+     * @allow (create, update, delete) - ANY user can create, update or delete a tariff. This is insecure and MUST be addressed.
+     * @principle Provides public read access for tariff information.
      */
     match /tariffs/{tariffId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
       // Allow anyone to read tariff data.
-      allow get, list: if true;
-      // In this prototype, no one can create, update, or delete tariff data.
-      allow create, update, delete: if false;
+      allow get, list: if isSignedIn();
+
+      // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
-  }
-
-  // Helper function to determine if the user is signed in.
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  // Helper function to determine if the request is made by the owner of the resource.
-  function isOwner(userId) {
-    return request.auth.uid == userId;
-  }
-
-    // Helper function to determine if the request is made by the owner of the resource, and that the resource exists
-  function isExistingOwner(userId) {
-    return isOwner(userId) && resource != null;
   }
 }
