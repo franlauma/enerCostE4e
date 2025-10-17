@@ -1,74 +1,60 @@
-/**
- * @file Firestore Security Rules for EnerCost Analyzer
- * @version Prototyping
- * @core_philosophy This ruleset enforces a strict user-ownership model, ensuring that users can only access their own data. It prioritizes security by default, denying access unless explicitly granted.
- * @data_structure All user data is nested under `/users/{userId}`, and each user's simulations are stored under `/users/{userId}/simulations/{simulationId}`.
- * @key_security_decisions This ruleset explicitly denies listing all users, and it defaults to strict ownership for all collections.
- * @denormalization Not applicable in this case, because all data is private.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Defines helper function that returns true if the user is signed in.
-     * @return {bool} True if the request is authenticated; otherwise, false.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Defines helper function that returns true if the userId matches the authenticated user's ID.
-     * @param {string} userId The user ID to check against.
-     * @return {bool} True if the provided userId matches the authenticated user's ID; otherwise, false.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Defines helper function that returns true if the user is the owner of the existing document.
-     *              It checks both the ownership and the existence of the document.
-     * @param {string} userId The user ID to check against.
-     * @return {bool} True if the user is the owner of the existing document; otherwise, false.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Secures the user profile documents.
+     * @description Enforces user-ownership for user profiles. Only the user themselves can read or write their profile.
      * @path /users/{userId}
-     * @allow (create) - Authenticated user can create their own profile if the userId matches their auth UID.
-     * @allow (get, update, delete) - Authenticated user can access and modify their own profile if the userId matches their auth UID.
-     * @deny (create) - If the userId does not match the authenticated user's UID.
-     * @deny (get, update, delete) - If the userId does not match the authenticated user's UID.
-     * @principle Enforces document ownership for user profiles.
+     * @allow (create) - Authenticated user 'user_abc' can create their own profile with ID 'user_abc'.
+     * @allow (get, update, delete) - Authenticated user 'user_abc' can read, update, or delete their own profile.
+     * @deny (create, get, update, delete) - Authenticated user 'user_xyz' cannot access user profile 'user_abc'.
+     * @deny (list) - Any user cannot list all user profiles.
+     * @principle Enforces document ownership for all operations on user profiles.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      // Helper function to check if the user is signed in and owns the document.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      //function isExistingOwner(userId) {
+      //  return isOwner(userId) && resource != null;
+      //}
+
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false; // No listing of users allowed.
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
-     * @description Secures the simulation documents for each user.
+     * @description Enforces user-ownership for simulations. Only the owning user can manage their simulations.
      * @path /users/{userId}/simulations/{simulationId}
-     * @allow (create) - Authenticated user can create a simulation under their profile. The userId on the path must match the auth UID.
-     * @allow (get, list, update, delete) - Authenticated user can access their own simulations. The userId on the path must match the auth UID.
-     * @deny (create) - If the userId on the path does not match the auth UID.
-     * @deny (get, list, update, delete) - If the userId on the path does not match the auth UID.
-     * @principle Enforces document ownership for simulations.
+     * @allow (create) - Authenticated user 'user_abc' can create a simulation under their profile.
+     * @allow (get, list, update, delete) - Authenticated user 'user_abc' can read, list, update, or delete simulations under their profile.
+     * @deny (create, get, list, update, delete) - Authenticated user 'user_xyz' cannot access simulations under user 'user_abc'.
+     * @principle Enforces document ownership for all operations on simulations.
      */
     match /users/{userId}/simulations/{simulationId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
+      // Reuse the isSignedIn() and isOwner() functions defined above.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
   }
 }
