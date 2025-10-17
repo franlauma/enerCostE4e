@@ -75,7 +75,9 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
             for (const decoder of decoders) {
                 try {
                     decodedText = decoder.decode(buffer);
-                    if (decodedText.includes(';')) { // Simple check
+                    // A simple heuristic to check if decoding was successful.
+                    // If we find common spanish characters, we assume it's correct.
+                    if (decodedText.includes('ó') || decodedText.includes('í') || decodedText.includes(';')) {
                         lastError = null;
                         break; 
                     }
@@ -103,12 +105,16 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     else {
         throw new Error("Formato de archivo no soportado. Por favor, sube un archivo Excel o CSV.");
     }
+    
+    // Trim all cells first and remove totally empty rows
+    const cleanedData = rawData
+        .map(row => row.map(cell => (typeof cell === 'string' ? cell.trim() : cell)))
+        .filter(row => row.length > 0 && row.some(cell => cell !== null && cell !== undefined && cell !== ''));
 
-    const cleanedData = rawData.map(row => row.map(cell => typeof cell === 'string' ? cell.trim() : cell)).filter(row => row.length > 0 && row.some(cell => cell));
 
     // Find sections
-    const suministroHeaderIndex = cleanedData.findIndex(row => row.some(cell => typeof cell === 'string' && cell.includes('Datos suministro')));
-    const lecturasHeaderIndex = cleanedData.findIndex(row => row.some(cell => typeof cell === 'string' && cell.includes('Datos lecturas')));
+    const suministroHeaderIndex = cleanedData.findIndex(row => row.some(cell => typeof cell === 'string' && cell.toLowerCase().includes('datos suministro')));
+    const lecturasHeaderIndex = cleanedData.findIndex(row => row.some(cell => typeof cell === 'string' && cell.toLowerCase().includes('datos lecturas')));
 
     if (lecturasHeaderIndex === -1) {
         throw new Error("No se encontró la sección 'Datos lecturas' en el archivo.");
@@ -119,37 +125,38 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
 
     // --- Process consumption data ('Datos lecturas') ---
     const lecturasHeadersRow = cleanedData[lecturasHeaderIndex + 1];
-    const lecturasDataRows = cleanedData.slice(lecturasHeaderIndex + 2);
+    const lecturasDataRows = cleanedData.slice(lecturasHeaderIndex + 2, suministroHeaderIndex > lecturasHeaderIndex ? suministroHeaderIndex : undefined);
     
     const lecturasHeaders: string[] = lecturasHeadersRow.map((h: any) => String(h).trim());
-    const consumoP1Index = lecturasHeaders.indexOf('Consumo Activa P1');
-    const consumoP2Index = lecturasHeaders.indexOf('Consumo Activa P2');
-    const consumoP3Index = lecturasHeaders.indexOf('Consumo Activa P3');
-    const consumoP4Index = lecturasHeaders.indexOf('Consumo Activa P4');
-    const consumoP5Index = lecturasHeaders.indexOf('Consumo Activa P5');
-    const consumoP6Index = lecturasHeaders.indexOf('Consumo Activa P6');
+    const consumoP1Index = lecturasHeaders.findIndex(h => h === 'Consumo Activa P1');
+    const consumoP2Index = lecturasHeaders.findIndex(h => h === 'Consumo Activa P2');
+    const consumoP3Index = lecturasHeaders.findIndex(h => h === 'Consumo Activa P3');
+    const consumoP4Index = lecturasHeaders.findIndex(h => h === 'Consumo Activa P4');
+    const consumoP5Index = lecturasHeaders.findIndex(h => h === 'Consumo Activa P5');
+    const consumoP6Index = lecturasHeaders.findIndex(h => h === 'Consumo Activa P6');
 
-    if ([consumoP1Index, consumoP2Index, consumoP3Index, consumoP4Index, consumoP5Index, consumoP6Index].some(i => i === -1)) {
-        throw new Error("No se encontraron las columnas de consumo ('Consumo Activa P1' a 'P6') en la sección 'Datos lecturas'.");
+    if ([consumoP1Index, consumoP2Index, consumoP3Index].some(i => i === -1)) { // At least P1, P2, P3 are required
+        throw new Error("No se encontraron las columnas de consumo requeridas ('Consumo Activa P1', 'P2', 'P3') en la sección 'Datos lecturas'.");
     }
 
     let totalKwhP1 = 0, totalKwhP2 = 0, totalKwhP3 = 0, totalKwhP4 = 0, totalKwhP5 = 0, totalKwhP6 = 0;
 
     for (const row of lecturasDataRows) {
         if (!row || row.length === 0 || !row[0]) continue;
+        if (typeof row[0] === 'string' && row[0].toLowerCase().includes('cups')) continue; // Skip header-like rows in data
 
         totalKwhP1 += parseFloat(String(row[consumoP1Index]).replace(',', '.')) || 0;
         totalKwhP2 += parseFloat(String(row[consumoP2Index]).replace(',', '.')) || 0;
         totalKwhP3 += parseFloat(String(row[consumoP3Index]).replace(',', '.')) || 0;
-        totalKwhP4 += parseFloat(String(row[consumoP4Index]).replace(',', '.')) || 0;
-        totalKwhP5 += parseFloat(String(row[consumoP5Index]).replace(',', '.')) || 0;
-        totalKwhP6 += parseFloat(String(row[consumoP6Index]).replace(',', '.')) || 0;
+        if (consumoP4Index > -1) totalKwhP4 += parseFloat(String(row[consumoP4Index]).replace(',', '.')) || 0;
+        if (consumoP5Index > -1) totalKwhP5 += parseFloat(String(row[consumoP5Index]).replace(',', '.')) || 0;
+        if (consumoP6Index > -1) totalKwhP6 += parseFloat(String(row[consumoP6Index]).replace(',', '.')) || 0;
     }
     
     const totalKwh = totalKwhP1 + totalKwhP2 + totalKwhP3 + totalKwhP4 + totalKwhP5 + totalKwhP6;
 
     if (totalKwh === 0) {
-        throw new Error("No se pudo calcular un consumo total a partir del archivo. Verifique que los datos de consumo son correctos.");
+        throw new Error("No se pudo calcular un consumo total a partir del archivo. Verifique que los datos de consumo son correctos y no son cero.");
     }
     
     // --- Process supply data ('Datos suministro') ---
@@ -157,18 +164,22 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     const suministroDataRow = cleanedData[suministroHeaderIndex + 2];
 
     const suministroHeaders: string[] = suministroHeadersRow.map((h: any) => String(h).trim());
-    const potenciaP1Index = suministroHeaders.indexOf('Potencia Contratada P1');
-    const potenciaP2Index = suministroHeaders.indexOf('Potencia Contratada P2');
-    const potenciaP3Index = suministroHeaders.indexOf('Potencia Contratada P3');
-    const potenciaP4Index = suministroHeaders.indexOf('Potencia Contratada P4');
-    const potenciaP5Index = suministroHeaders.indexOf('Potencia Contratada P5');
-    const potenciaP6Index = suministroHeaders.indexOf('Potencia Contratada P6');
+    const potenciaP1Index = suministroHeaders.findIndex(h => h === 'Potencia Contratada P1');
+    const potenciaP2Index = suministroHeaders.findIndex(h => h === 'Potencia Contratada P2');
+    const potenciaP3Index = suministroHeaders.findIndex(h => h === 'Potencia Contratada P3');
+    const potenciaP4Index = suministroHeaders.findIndex(h => h === 'Potencia Contratada P4');
+    const potenciaP5Index = suministroHeaders.findIndex(h => h === 'Potencia Contratada P5');
+    const potenciaP6Index = suministroHeaders.findIndex(h => h === 'Potencia Contratada P6');
+    
 
     if ([potenciaP1Index, potenciaP2Index].some(i => i === -1)) { // At least P1 and P2 for power are common
         throw new Error("No se encontraron las columnas de potencia contratada ('Potencia Contratada P1', 'P2', etc.) en la sección 'Datos suministro'.");
     }
 
-    const getPotencia = (index: number) => parseFloat(String(suministroDataRow[index]).replace(',', '.')) || 0;
+    const getPotencia = (index: number) => {
+        if(index === -1) return 0;
+        return parseFloat(String(suministroDataRow[index]).replace(',', '.')) || 0;
+    }
 
     const potenciaContratada = {
         p1: getPotencia(potenciaP1Index),
@@ -292,7 +303,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
          return {
             success: false,
             error: error.message || 'Error al procesar el archivo.',
-            helpMessage: "Asegúrate de que el archivo Excel o CSV no esté corrupto y que contenga una sección 'Datos lecturas' con las columnas de consumo requeridas.",
+            helpMessage: "Asegúrate de que el archivo Excel o CSV no esté corrupto y que contenga las secciones 'Datos suministro' y 'Datos lecturas' con las columnas requeridas (Consumo Activa P1-P3, Potencia Contratada P1-P2).",
             aiSummary: null
         }
     }
