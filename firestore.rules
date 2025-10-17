@@ -1,79 +1,67 @@
 /**
  * @file Firestore Security Rules for EnerCost Analyzer
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model, ensuring that only authenticated users can access their own data.
- *
- * Data Structure:
- * - Users are stored under `/users/{userId}`, with the `userId` acting as the document ID.
- * - Simulations belonging to a user are stored under `/users/{userId}/simulations/{simulationId}`.
- *
- * Key Security Decisions:
- * - User listing is disallowed to protect user privacy.
- * - Only authenticated users can create, read, update, or delete their own user profiles and simulations.
- * - Data consistency between the path and the document's internal fields is enforced.
- *
- * Denormalization for Authorization:
- *   No denormalization is needed in this version since all data is private to the user,
- *   avoiding the need for `get()` calls in the security rules.
+ * @version Prototyping
+ * @core_philosophy This ruleset enforces a strict user-ownership model, ensuring that users can only access their own data.
+ * @data_structure User data is stored under /users/{userId}, and simulations are stored under /users/{userId}/simulations/{simulationId}. This hierarchical structure provides a clear ownership model.
+ * @key_security_decisions User listing is disallowed, as it is not a required feature and could expose user data. All data is private to the user, and no denormalization is required for authorization.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Protects user profiles, ensuring only the authenticated user can access their own profile.
+     * @description Enforces that only the authenticated user can access their own user document.
      * @path /users/{userId}
-     * @allow (create) User with id '2JbDfyReHre3lRFXULizczyFtrR2' creates their own profile.
-     * @allow (get) User with id '2JbDfyReHre3lRFXULizczyFtrR2' reads their own profile.
-     * @allow (update) User with id '2JbDfyReHre3lRFXULizczyFtrR2' updates their own profile.
-     * @allow (delete) User with id '2JbDfyReHre3lRFXULizczyFtrR2' deletes their own profile.
-     * @deny (create) User with id 'OtherUserId' tries to create a profile with id '2JbDfyReHre3lRFXULizczyFtrR2'.
-     * @deny (get) User with id 'OtherUserId' tries to read the profile with id '2JbDfyReHre3lRFXULizczyFtrR2'.
-     * @deny (update) User with id 'OtherUserId' tries to update the profile with id '2JbDfyReHre3lRFXULizczyFtrR2'.
-     * @deny (delete) User with id 'OtherUserId' tries to delete the profile with id '2JbDfyReHre3lRFXULizczyFtrR2'.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - Authenticated user with UID 'user123' can create a document at /users/user123.
+     * @allow (get, update, delete) - Authenticated user with UID 'user123' can access their own document at /users/user123.
+     * @deny (create) - Authenticated user with UID 'user456' cannot create a document at /users/user123.
+     * @deny (get, update, delete) - Authenticated user with UID 'user456' cannot access the document at /users/user123.
+     * @deny (list) - Listing of users is not allowed.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isSignedIn() && isOwner(userId);
       allow list: if false;
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && resource.data.id == userId;
-      allow delete: if isExistingOwner(userId);
+
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
-     * @description Protects simulations, ensuring only the owning user can access their own simulations.
+     * @description Enforces that only the authenticated user can access their own simulations.
      * @path /users/{userId}/simulations/{simulationId}
-     * @allow (create) User with id '2JbDfyReHre3lRFXULizczyFtrR2' creates a simulation under their profile.
-     * @allow (get) User with id '2JbDfyReHre3lRFXULizczyFtrR2' reads a simulation under their profile.
-     * @allow (update) User with id '2JbDfyReHre3lRFXULizczyFtrR2' updates a simulation under their profile.
-     * @allow (delete) User with id '2JbDfyReHre3lRFXULizczyFtrR2' deletes a simulation under their profile.
-     * @deny (create) User with id 'OtherUserId' tries to create a simulation under the profile with id '2JbDfyReHre3lRFXULizczyFtrR2'.
-     * @deny (get) User with id 'OtherUserId' tries to read a simulation under the profile with id '2JbDfyReHre3lRFXULizczyFtrR2'.
-     * @deny (update) User with id 'OtherUserId' tries to update a simulation under the profile with id '2JbDfyReHre3lRFXULizczyFtrR2'.
-     * @deny (delete) User with id 'OtherUserId' tries to delete a simulation under the profile with id '2JbDfyReHre3lRFXULizczyFtrR2'.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - Authenticated user with UID 'user123' can create a simulation document under /users/user123/simulations/sim123.
+     * @allow (get, update, delete) - Authenticated user with UID 'user123' can access their own simulation document under /users/user123/simulations/sim123.
+     * @deny (create) - Authenticated user with UID 'user456' cannot create a simulation document under /users/user123/simulations/sim123.
+     * @deny (get, update, delete) - Authenticated user with UID 'user456' cannot access the simulation document under /users/user123/simulations/sim123.
+     * @principle Restricts access to a user's own data tree.
      */
     match /users/{userId}/simulations/{simulationId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && resource.data.userId == userId;
-      allow delete: if isExistingOwner(userId);
+       function isSignedIn() {
+        return request.auth != null;
+      }
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
-  }
-
-  // Helper functions
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  function isOwner(userId) {
-    return isSignedIn() && request.auth.uid == userId;
-  }
-
-  function isExistingOwner(userId) {
-    return isOwner(userId) && resource != null;
   }
 }
