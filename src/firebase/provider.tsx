@@ -155,23 +155,6 @@ export const useFirebaseApp = (): FirebaseApp => {
 };
 
 /**
- * A custom hook that memoizes a value and marks it for internal use with Firebase hooks.
- * This helps prevent re-renders by ensuring that object/array dependencies for other hooks
- * are stable unless their own dependencies change.
- *
- * @template T The type of the value to be memoized.
- * @param {() => T} factory A function that computes the value to be memoized.
- * @param {DependencyList} deps An array of dependencies for the useMemo hook.
- * @returns {T} The memoized value.
- */
-export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T {
-  // The 'as any' is a type-casting concession to attach our internal property.
-  // This is a controlled and internal pattern, so the risk is minimal.
-  return useMemo(factory, deps) as any;
-}
-
-
-/**
  * Hook specifically for accessing the authenticated user's state.
  * This provides the User object, loading status, and any auth errors.
  * @returns {UserHookResult} Object with user, isUserLoading, userError.

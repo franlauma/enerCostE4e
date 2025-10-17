@@ -1,7 +1,7 @@
 'use client';
 
-import { useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { useMemo } from 'react';
+import { useCollection, useDoc } from '@/firebase';
+import React from 'react';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,19 +26,20 @@ export default function ClientDetailPage({ params }: { params: { clientId: strin
   const { clientId } = params;
   const firestore = useFirestore();
 
-  const userDocRef = useMemoFirebase(
-    () => (firestore && clientId ? doc(firestore, 'users', clientId) : null),
-    [firestore, clientId]
-  );
+  const userDocRef = React.useMemo(() => {
+    if (!firestore || !clientId) return null;
+    const d = doc(firestore, 'users', clientId);
+    (d as any).__memo = true;
+    return d;
+  }, [firestore, clientId]);
   const { data: user, isLoading: isUserLoading } = useDoc<any>(userDocRef);
 
-  const simulationsQuery = useMemoFirebase(
-    () =>
-      firestore && clientId
-        ? query(collection(firestore, `users/${clientId}/simulations`), orderBy('simulationDate', 'desc'))
-        : null,
-    [firestore, clientId]
-  );
+  const simulationsQuery = React.useMemo(() => {
+    if (!firestore || !clientId) return null;
+    const q = query(collection(firestore, `users/${clientId}/simulations`), orderBy('simulationDate', 'desc'));
+    (q as any).__memo = true;
+    return q;
+  }, [firestore, clientId]);
   const { data: simulations, isLoading: areSimulationsLoading } = useCollection<any>(simulationsQuery);
   
   const getInitials = (firstName = '', lastName = '') => {

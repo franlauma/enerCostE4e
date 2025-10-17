@@ -1,6 +1,6 @@
 'use client';
 
-import { useCollection, useMemoFirebase } from '@/firebase';
+import { useCollection } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,14 +18,19 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
+import React from 'react';
 
 export default function ClientsPage() {
   const firestore = useFirestore();
 
-  const usersQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'users'), orderBy('lastName', 'asc')) : null),
-    [firestore]
-  );
+  const usersQuery = React.useMemo(() => {
+    if (!firestore) return null;
+    const q = query(collection(firestore, 'users'), orderBy('lastName', 'asc'));
+    // Attach a marker to satisfy the useCollection hook's internal check
+    (q as any).__memo = true;
+    return q;
+  }, [firestore]);
+
 
   const { data: users, isLoading } = useCollection<any>(usersQuery);
 
