@@ -1,110 +1,61 @@
 /**
  * @file Firestore Security Rules for EnerCost Analyzer
  * @version Prototyping
- *
- * @description
- * This ruleset enforces a strict user-ownership model for all data. Each user can only access their own profile and simulations.
- *
- * @data-structure
- * - /users/{userId}: Stores user profiles, with the document ID matching the user's UID.
- * - /users/{userId}/simulations/{simulationId}: Stores simulation data, nested under the user's profile.
- *
- * @key-security-decisions
- * - Listing all users is disallowed to protect user privacy.
- * - Data validation is relaxed to allow for rapid prototyping but enforces critical path and relationship consistency.
- *
- * @denormalization-strategy
- * No denormalization is needed as all data is private to the user.
+ * @core_philosophy This ruleset enforces a strict user-ownership model, ensuring that users can only access their own data.
+ * @data_structure User data is stored under /users/{userId}, and simulations are stored under /users/{userId}/simulations/{simulationId}. This hierarchical structure provides a clear ownership model.
+ * @key_security_decisions User listing is disallowed, as it is not a required feature and could expose user data. All data is private to the user, and no denormalization is required for authorization.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Prevents listing all users.
-     * @path /users
-     * @allow (get) - N/A
-     * @deny (list) - Any authenticated user.
-     * @principle Prevents unauthorized listing of user profiles.
-     */
-    match /users {
-      allow get: if false;
-      allow list: if false;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
-    }
-
-    /**
-     * @description Controls access to individual user profiles.
+     * @description Enforces that only the authenticated user can access their own user document.
      * @path /users/{userId}
-     * @allow (create) An authenticated user whose UID matches the `userId` parameter.
-     * @allow (get) An authenticated user whose UID matches the `userId` parameter.
-     * @allow (update) An authenticated user whose UID matches the `userId` parameter, only if the id remains the same.
-     * @allow (delete) An authenticated user whose UID matches the `userId` parameter and the document exists.
-     * @deny (create) If the authenticated user's UID does not match the `userId` parameter.
-     * @deny (get) If the authenticated user's UID does not match the `userId` parameter.
-     * @deny (update) If the authenticated user's UID does not match the `userId` parameter.
-     * @deny (delete) If the authenticated user's UID does not match the `userId` parameter.
-     * @principle Enforces document ownership and validates relational integrity (userId in path == userId in doc).
+     * @allow (create) - Authenticated user with UID 'user123' can create a document at /users/user123.
+     * @allow (get, update, delete) - Authenticated user with UID 'user123' can access their own document at /users/user123.
+     * @deny (create) - Authenticated user with UID 'user456' cannot create a document at /users/user123.
+     * @deny (get, update, delete) - Authenticated user with UID 'user456' cannot access the document at /users/user123.
+     * @deny (list) - Listing of users is not allowed.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      allow get: if isSignedIn() && isOwner(userId);
       allow list: if false;
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+
+      allow create: if isSignedIn() && isOwner(userId) ;
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
-     * @description Controls access to simulation data for each user.
+     * @description Enforces that only the authenticated user can access their own simulations.
      * @path /users/{userId}/simulations/{simulationId}
-     * @allow (create) An authenticated user whose UID matches the `userId` parameter.
-     * @allow (get) An authenticated user whose UID matches the `userId` parameter.
-     * @allow (list) An authenticated user whose UID matches the `userId` parameter.
-     * @allow (update) An authenticated user whose UID matches the `userId` parameter.
-     * @allow (delete) An authenticated user whose UID matches the `userId` parameter.
-     * @deny (create) If the authenticated user's UID does not match the `userId` parameter.
-     * @deny (get) If the authenticated user's UID does not match the `userId` parameter.
-     * @deny (list) If the authenticated user's UID does not match the `userId` parameter.
-     * @deny (update) If the authenticated user's UID does not match the `userId` parameter.
-     * @deny (delete) If the authenticated user's UID does not match the `userId` parameter.
-     * @principle Enforces document ownership and validates relational integrity (userId in path == userId in doc).
+     * @allow (create) - Authenticated user with UID 'user123' can create a simulation document under /users/user123/simulations/sim123.
+     * @allow (get, update, delete) - Authenticated user with UID 'user123' can access their own simulation document under /users/user123/simulations/sim123.
+     * @deny (create) - Authenticated user with UID 'user456' cannot create a simulation document under /users/user123/simulations/sim123.
+     * @deny (get, update, delete) - Authenticated user with UID 'user456' cannot access the simulation document under /users/user123/simulations/sim123.
+     * @principle Restricts access to a user's own data tree.
      */
     match /users/{userId}/simulations/{simulationId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
-      allow delete: if isExistingOwner(userId);
-    }
-
-    // --- Helper Functions ---
-
-    /**
-     * @description Checks if the current user is signed in.
-     * @return True if the user is authenticated, false otherwise.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the current user is the owner of the resource based on the userId.
-     * @param userId The user ID to compare against the authenticated user's UID.
-     * @return True if the user is authenticated and their UID matches the provided userId, false otherwise.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the current user is the owner of the resource and the resource exists.
-     * @param userId The user ID to compare against the authenticated user's UID.
-     * @return True if the user is authenticated, their UID matches the provided userId, and the resource exists.
-     */
-    function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+       function isSignedIn() {
+        return request.auth != null;
+      }
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
   }
 }
