@@ -131,8 +131,8 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     const consumoP5Index = headers.indexOf('Consumo Activa P5');
     const consumoP6Index = headers.indexOf('Consumo Activa P6');
 
-    if ([consumoP1Index, consumoP2Index, consumoP3Index].some(i => i === -1)) { // Check only for P1-P3 as per user request
-        throw new Error("No se encontraron las columnas de consumo ('Consumo Activa P1' a 'P3') en la sección 'Datos lecturas'.");
+    if ([consumoP1Index, consumoP2Index, consumoP3Index, consumoP4Index, consumoP5Index, consumoP6Index].some(i => i === -1)) { // Check for P1-P6
+        throw new Error("No se encontraron las columnas de consumo ('Consumo Activa P1' a 'P6') en la sección 'Datos lecturas'.");
     }
 
     let totalKwhP1 = 0, totalKwhP2 = 0, totalKwhP3 = 0, totalKwhP4 = 0, totalKwhP5 = 0, totalKwhP6 = 0;
@@ -143,9 +143,9 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
         totalKwhP1 += parseFloat(String(row[consumoP1Index]).replace(',', '.')) || 0;
         totalKwhP2 += parseFloat(String(row[consumoP2Index]).replace(',', '.')) || 0;
         totalKwhP3 += parseFloat(String(row[consumoP3Index]).replace(',', '.')) || 0;
-        if(consumoP4Index !== -1) totalKwhP4 += parseFloat(String(row[consumoP4Index]).replace(',', '.')) || 0;
-        if(consumoP5Index !== -1) totalKwhP5 += parseFloat(String(row[consumoP5Index]).replace(',', '.')) || 0;
-        if(consumoP6Index !== -1) totalKwhP6 += parseFloat(String(row[consumoP6Index]).replace(',', '.')) || 0;
+        totalKwhP4 += parseFloat(String(row[consumoP4Index]).replace(',', '.')) || 0;
+        totalKwhP5 += parseFloat(String(row[consumoP5Index]).replace(',', '.')) || 0;
+        totalKwhP6 += parseFloat(String(row[consumoP6Index]).replace(',', '.')) || 0;
     }
 
     const totalKwh = totalKwhP1 + totalKwhP2 + totalKwhP3 + totalKwhP4 + totalKwhP5 + totalKwhP6;
