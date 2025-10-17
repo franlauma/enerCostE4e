@@ -11,9 +11,6 @@ const NavLinks = () => (
       <Link href="/">Análisis</Link>
     </Button>
     <Button asChild variant="ghost">
-      <Link href="/tariffs">Tarifas</Link>
-    </Button>
-    <Button asChild variant="ghost">
       <Link href="/clients">Clientes</Link>
     </Button>
   </>
@@ -64,3 +61,5 @@ export default function Header() {
     </header>
   );
 }
+
+    

@@ -3,11 +3,10 @@
 
 import { z } from 'zod';
 import * as xlsx from 'xlsx';
-import { MOCK_SIMULATION_RESULT, type SimulationResult, type CompanyCost, type Tariff, MOCK_TARIFFS } from '@/lib/data';
+import { MOCK_SIMULATION_RESULT, type SimulationResult, type CompanyCost, type Tariff } from '@/lib/data';
 import { getContextualHelp } from '@/ai/flows/contextual-assistance';
 import { summarizeSimulationResults } from '@/ai/flows/summarize-results-flow';
-import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
-import { initializeFirebase } from '@/firebase/index.server';
+
 
 const formSchema = z.object({
   file: z.any().refine(file => file?.size > 0, 'El archivo no puede estar vacío.'),
@@ -21,36 +20,14 @@ type ActionResponse = {
   aiSummary?: string | null;
 };
 
-// Helper function to read tariffs from Firestore.
-// We use a server-side initialized Firebase app for this.
-async function getTariffsFromFirestore(): Promise<Tariff[]> {
-    const { firestore } = await initializeFirebase();
-    const tariffsCol = collection(firestore, 'tariffs');
-    let snapshot = await getDocs(tariffsCol);
+const MOCK_TARIFFS: Omit<Tariff, 'id'>[] = [
+    { companyName: 'Tu Compañía Actual', priceKwhP1: 0.22, priceKwhP2: 0.20, priceKwhP3: 0.18, priceKwhP4: 0.17, priceKwhP5: 0.16, priceKwhP6: 0.15, fixedTerm: 5.83, promo: 'Tarifa Base', pricePowerP1: 0.1, pricePowerP2: 0.08, pricePowerP3: 0.07, pricePowerP4: 0.06, pricePowerP5: 0.05, pricePowerP6: 0.04, surplusCompensationPrice: 0.05 },
+    { companyName: 'EcoLuz', priceKwhP1: 0.15, priceKwhP2: 0.14, priceKwhP3: 0.13, priceKwhP4: 0.12, priceKwhP5: 0.11, priceKwhP6: 0.10, fixedTerm: 5.00, promo: '20% dto. 6 meses', pricePowerP1: 0.09, pricePowerP2: 0.08, pricePowerP3: 0.07, pricePowerP4: 0.06, pricePowerP5: 0.05, pricePowerP6: 0.04, surplusCompensationPrice: 0.06 },
+    { companyName: 'Energía Clara', priceKwhP1: 0.16, priceKwhP2: 0.15, priceKwhP3: 0.14, priceKwhP4: 0.13, priceKwhP5: 0.12, priceKwhP6: 0.11, fixedTerm: 4.58, promo: 'Precio fijo', pricePowerP1: 0.095, pricePowerP2: 0.085, pricePowerP3: 0.075, pricePowerP4: 0.065, pricePowerP5: 0.055, pricePowerP6: 0.045, surplusCompensationPrice: 0.055 },
+    { companyName: 'Solaria Power', priceKwhP1: 0.155, priceKwhP2: 0.145, priceKwhP3: 0.135, priceKwhP4: 0.125, priceKwhP5: 0.115, priceKwhP6: 0.105, fixedTerm: 5.42, promo: 'Sin permanencia', pricePowerP1: 0.11, pricePowerP2: 0.09, pricePowerP3: 0.08, pricePowerP4: 0.07, pricePowerP5: 0.06, pricePowerP6: 0.05, surplusCompensationPrice: 0.065 },
+    { companyName: 'Iberdrola', priceKwhP1: 0.20, priceKwhP2: 0.19, priceKwhP3: 0.18, priceKwhP4: 0.17, priceKwhP5: 0.16, priceKwhP6: 0.15, fixedTerm: 6.67, promo: 'Plan Noche', pricePowerP1: 0.12, pricePowerP2: 0.10, pricePowerP3: 0.09, pricePowerP4: 0.08, pricePowerP5: 0.07, pricePowerP6: 0.06, surplusCompensationPrice: 0.04 },
+];
 
-    // If the collection is empty, seed it with mock data
-    if (snapshot.empty) {
-        console.log("Tariffs collection is empty, seeding with mock data...");
-        const batch = writeBatch(firestore);
-        MOCK_TARIFFS.forEach(tariff => {
-            // Firestore will generate an ID if we use doc(collectionRef)
-            const newDocRef = doc(tariffsCol);
-            batch.set(newDocRef, tariff);
-        });
-        await batch.commit();
-        console.log("Mock tariffs seeded successfully.");
-        // Re-fetch the data after seeding
-        snapshot = await getDocs(tariffsCol);
-    }
-
-    if (snapshot.empty) {
-        // This case should ideally not be reached after seeding, but it's a good fallback.
-        console.error("Failed to seed or retrieve tariffs. Returning empty array.");
-        return [];
-    }
-
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tariff));
-}
 
 // Function to parse CSV data, assuming semicolon delimiter
 function parseCsv(text: string): any[][] {
@@ -90,10 +67,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
   }
 
   try {
-    const availableTariffs = await getTariffsFromFirestore();
-    if (availableTariffs.length === 0) {
-        throw new Error("No hay tarifas configuradas en la base de datos. Por favor, añada tarifas en la página de 'Tarifas'.");
-    }
+    const availableTariffs: Tariff[] = MOCK_TARIFFS.map((t, i) => ({...t, id: (i+1).toString()}));
 
     const file = validatedFields.data.file as File;
     const buffer = await file.arrayBuffer();
@@ -281,3 +255,5 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     }
   }
 }
+
+    
