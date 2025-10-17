@@ -6,6 +6,7 @@ import * as xlsx from 'xlsx';
 import { MOCK_SIMULATION_RESULT, type SimulationResult, type CompanyCost, type Tariff } from '@/lib/data';
 import { getContextualHelp } from '@/ai/flows/contextual-assistance';
 import { summarizeSimulationResults } from '@/ai/flows/summarize-results-flow';
+import tariffs from './tariffs.json';
 
 
 const formSchema = z.object({
@@ -19,15 +20,6 @@ type ActionResponse = {
   helpMessage?: string | null;
   aiSummary?: string | null;
 };
-
-const MOCK_TARIFFS: Omit<Tariff, 'id'>[] = [
-    { companyName: 'Tu Compañía Actual', priceKwhP1: 0.22, priceKwhP2: 0.20, priceKwhP3: 0.18, priceKwhP4: 0.17, priceKwhP5: 0.16, priceKwhP6: 0.15, fixedTerm: 5.83, promo: 'Tarifa Base', pricePowerP1: 0.1, pricePowerP2: 0.08, pricePowerP3: 0.07, pricePowerP4: 0.06, pricePowerP5: 0.05, pricePowerP6: 0.04, surplusCompensationPrice: 0.05 },
-    { companyName: 'EcoLuz', priceKwhP1: 0.15, priceKwhP2: 0.14, priceKwhP3: 0.13, priceKwhP4: 0.12, priceKwhP5: 0.11, priceKwhP6: 0.10, fixedTerm: 5.00, promo: '20% dto. 6 meses', pricePowerP1: 0.09, pricePowerP2: 0.08, pricePowerP3: 0.07, pricePowerP4: 0.06, pricePowerP5: 0.05, pricePowerP6: 0.04, surplusCompensationPrice: 0.06 },
-    { companyName: 'Energía Clara', priceKwhP1: 0.16, priceKwhP2: 0.15, priceKwhP3: 0.14, priceKwhP4: 0.13, priceKwhP5: 0.12, priceKwhP6: 0.11, fixedTerm: 4.58, promo: 'Precio fijo', pricePowerP1: 0.095, pricePowerP2: 0.085, pricePowerP3: 0.075, pricePowerP4: 0.065, pricePowerP5: 0.055, pricePowerP6: 0.045, surplusCompensationPrice: 0.055 },
-    { companyName: 'Solaria Power', priceKwhP1: 0.155, priceKwhP2: 0.145, priceKwhP3: 0.135, priceKwhP4: 0.125, priceKwhP5: 0.115, priceKwhP6: 0.105, fixedTerm: 5.42, promo: 'Sin permanencia', pricePowerP1: 0.11, pricePowerP2: 0.09, pricePowerP3: 0.08, pricePowerP4: 0.07, pricePowerP5: 0.06, pricePowerP6: 0.05, surplusCompensationPrice: 0.065 },
-    { companyName: 'Iberdrola', priceKwhP1: 0.20, priceKwhP2: 0.19, priceKwhP3: 0.18, priceKwhP4: 0.17, priceKwhP5: 0.16, priceKwhP6: 0.15, fixedTerm: 6.67, promo: 'Plan Noche', pricePowerP1: 0.12, pricePowerP2: 0.10, pricePowerP3: 0.09, pricePowerP4: 0.08, pricePowerP5: 0.07, pricePowerP6: 0.06, surplusCompensationPrice: 0.04 },
-];
-
 
 // Function to parse CSV data, assuming semicolon delimiter
 function parseCsv(text: string): any[][] {
@@ -67,7 +59,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
   }
 
   try {
-    const availableTariffs: Tariff[] = MOCK_TARIFFS.map((t, i) => ({...t, id: (i+1).toString()}));
+    const availableTariffs: Tariff[] = tariffs.map((t, i) => ({...t, id: (i+1).toString()}));
 
     const file = validatedFields.data.file as File;
     const buffer = await file.arrayBuffer();
@@ -81,23 +73,23 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
             const decoders = [
                 new TextDecoder('utf-8'),
                 new TextDecoder('latin1'),
-                new TextDecoder('utf-16le'),
-                new TextDecoder('utf-16be')
+                new TextDecoder('windows-1252'),
             ];
             let decodedText = '';
+            let lastError: any = null;
             for (const decoder of decoders) {
                 try {
                     decodedText = decoder.decode(buffer);
-                    // A simple heuristic to check if decoding was successful
                     if (decodedText.includes(';')) {
-                        break;
+                        lastError = null;
+                        break; 
                     }
                 } catch (e) {
-                    // try next decoder
+                    lastError = e;
                 }
             }
-             if (!decodedText) {
-                throw new Error("No se pudo decodificar el archivo CSV. Pruebe a guardarlo con codificación UTF-8.");
+             if (lastError) {
+                throw new Error(`No se pudo decodificar el archivo CSV. Error: ${lastError.message}. Pruebe a guardarlo con codificación UTF-8 o ISO-8859-1 (Latin1).`);
             }
             rawData = parseCsv(decodedText);
         } catch (e: any) {
@@ -160,7 +152,6 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     const userCurrentTariffName = 'Tu Compañía Actual';
 
     let details: CompanyCost[] = availableTariffs.map((tariff, index) => {
-      const fixedFee = tariff.fixedTerm * 12;
       const consumptionCost =
         (tariff.priceKwhP1 * totalKwhP1) +
         (tariff.priceKwhP2 * totalKwhP2) +
@@ -169,7 +160,10 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
         (tariff.priceKwhP5 * totalKwhP5) +
         (tariff.priceKwhP6 * totalKwhP6);
 
-      const otherCosts = 25.00 + (index * 2); // Mocked other costs
+      const fixedFee = tariff.fixedTerm * 12;
+
+      // Otros costes (potencia, excedentes, etc. - aún por implementar)
+      const otherCosts = 25.00 + (index * 2); 
       const totalCost = fixedFee + consumptionCost + otherCosts;
 
       return {
@@ -255,5 +249,3 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     }
   }
 }
-
-    
