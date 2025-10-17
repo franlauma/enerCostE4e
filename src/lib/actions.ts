@@ -29,6 +29,18 @@ function parseCsv(text: string): any[][] {
   });
 }
 
+// Function to parse DD/MM/YYYY dates
+function parseDate(dateStr: string): Date | null {
+    if (!dateStr || typeof dateStr !== 'string') return null;
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return null;
+    // Month is 0-indexed in JS Dates
+    const date = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+    // Check for invalid date
+    if (isNaN(date.getTime())) return null;
+    return date;
+}
+
 
 export async function simulateCost(formData: FormData): Promise<ActionResponse> {
   const validatedFields = formSchema.safeParse({
@@ -75,8 +87,6 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
             for (const decoder of decoders) {
                 try {
                     decodedText = decoder.decode(buffer);
-                    // A simple heuristic to check if decoding was successful.
-                    // If we find common spanish characters, we assume it's correct.
                     if (decodedText.includes('ó') || decodedText.includes('í') || decodedText.includes(';')) {
                         lastError = null;
                         break; 
@@ -85,7 +95,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
                     lastError = e;
                 }
             }
-             if (lastError) {
+             if (lastError && !decodedText) {
                 throw new Error(`No se pudo decodificar el archivo CSV. Error: ${lastError.message}. Pruebe a guardarlo con codificación UTF-8 o ISO-8859-1 (Latin1).`);
             }
             rawData = parseCsv(decodedText);
@@ -125,9 +135,50 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
 
     // --- Process consumption data ('Datos lecturas') ---
     const lecturasHeadersRow = cleanedData[lecturasHeaderIndex + 1];
-    const lecturasDataRows = cleanedData.slice(lecturasHeaderIndex + 2, suministroHeaderIndex > lecturasHeaderIndex ? suministroHeaderIndex : undefined);
+    const lecturasDataRowsAll = cleanedData.slice(lecturasHeaderIndex + 2, suministroHeaderIndex > lecturasHeaderIndex ? suministroHeaderIndex : undefined);
     
     const lecturasHeaders: string[] = lecturasHeadersRow.map((h: any) => String(h).trim());
+    const fechaLecturaIndex = lecturasHeaders.findIndex(h => h.toLowerCase() === 'fecha lectura');
+
+    if (fechaLecturaIndex === -1) {
+        throw new Error("No se encontró la columna 'Fecha Lectura' en la sección 'Datos lecturas'.");
+    }
+
+    // Filter to last year of data
+    let maxDate: Date | null = null;
+    for (const row of lecturasDataRowsAll) {
+        const date = parseDate(row[fechaLecturaIndex]);
+        if (date && (!maxDate || date > maxDate)) {
+            maxDate = date;
+        }
+    }
+
+    if (!maxDate) {
+        throw new Error("No se encontraron fechas válidas en la columna 'Fecha Lectura'.");
+    }
+
+    const oneYearAgo = new Date(maxDate);
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+    const lecturasDataRows = lecturasDataRowsAll.filter(row => {
+        const date = parseDate(row[fechaLecturaIndex]);
+        return date && date > oneYearAgo;
+    });
+
+     if (lecturasDataRows.length === 0) {
+        throw new Error("No hay datos de lectura en el último año para analizar.");
+    }
+    
+    const firstDate = parseDate(lecturasDataRows[0][lecturasHeaders.findIndex(h => h.toLowerCase() === 'fecha lectura anterior')]);
+    const lastDate = parseDate(lecturasDataRows[lecturasDataRows.length - 1][fechaLecturaIndex]);
+
+    if (!firstDate || !lastDate) {
+        throw new Error("No se pudieron determinar las fechas de inicio y fin del período de análisis.");
+    }
+
+    const daysInPeriod = Math.round((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
+    const annualizationFactor = daysInPeriod > 0 ? 365 / daysInPeriod : 0;
+
     const consumoP1Index = lecturasHeaders.findIndex(h => h === 'Consumo Activa P1');
     const consumoP2Index = lecturasHeaders.findIndex(h => h === 'Consumo Activa P2');
     const consumoP3Index = lecturasHeaders.findIndex(h => h === 'Consumo Activa P3');
@@ -153,12 +204,6 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
         if (consumoP6Index > -1) totalKwhP6 += parseFloat(String(row[consumoP6Index]).replace(',', '.')) || 0;
     }
     
-    const totalKwh = totalKwhP1 + totalKwhP2 + totalKwhP3 + totalKwhP4 + totalKwhP5 + totalKwhP6;
-
-    if (totalKwh === 0) {
-        throw new Error("No se pudo calcular un consumo total a partir del archivo. Verifique que los datos de consumo son correctos y no son cero.");
-    }
-    
     // --- Process supply data ('Datos suministro') ---
     const suministroHeadersRow = cleanedData[suministroHeaderIndex + 1];
     const suministroDataRow = cleanedData[suministroHeaderIndex + 2];
@@ -177,7 +222,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     }
 
     const getPotencia = (index: number) => {
-        if(index === -1) return 0;
+        if(index === -1 || !suministroDataRow[index]) return 0;
         return parseFloat(String(suministroDataRow[index]).replace(',', '.')) || 0;
     }
 
@@ -190,38 +235,40 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
         p6: getPotencia(potenciaP6Index),
     };
     
-    // Assume 365 days for annual calculation
-    const daysInPeriod = 365;
-
     // --- Perform Simulation ---
     const userCurrentTariffName = 'Tu Compañía Actual';
 
     let details: CompanyCost[] = availableTariffs.map((tariff) => {
+      // Annualized consumption
+      const annualKwhP1 = totalKwhP1 * annualizationFactor;
+      const annualKwhP2 = totalKwhP2 * annualizationFactor;
+      const annualKwhP3 = totalKwhP3 * annualizationFactor;
+      const annualKwhP4 = totalKwhP4 * annualizationFactor;
+      const annualKwhP5 = totalKwhP5 * annualizationFactor;
+      const annualKwhP6 = totalKwhP6 * annualizationFactor;
+
       const consumptionCost =
-        (tariff.priceKwhP1 * totalKwhP1) +
-        (tariff.priceKwhP2 * totalKwhP2) +
-        (tariff.priceKwhP3 * totalKwhP3) +
-        (tariff.priceKwhP4 * totalKwhP4) +
-        (tariff.priceKwhP5 * totalKwhP5) +
-        (tariff.priceKwhP6 * totalKwhP6);
+        (tariff.priceKwhP1 * annualKwhP1) +
+        (tariff.priceKwhP2 * annualKwhP2) +
+        (tariff.priceKwhP3 * annualKwhP3) +
+        (tariff.priceKwhP4 * annualKwhP4) +
+        (tariff.priceKwhP5 * annualKwhP5) +
+        (tariff.priceKwhP6 * annualKwhP6);
 
       const powerCost =
-        ((tariff.pricePowerP1 || 0) * potenciaContratada.p1 * daysInPeriod) +
-        ((tariff.pricePowerP2 || 0) * potenciaContratada.p2 * daysInPeriod) +
-        ((tariff.pricePowerP3 || 0) * potenciaContratada.p3 * daysInPeriod) +
-        ((tariff.pricePowerP4 || 0) * potenciaContratada.p4 * daysInPeriod) +
-        ((tariff.pricePowerP5 || 0) * potenciaContratada.p5 * daysInPeriod) +
-        ((tariff.pricePowerP6 || 0) * potenciaContratada.p6 * daysInPeriod);
+        ((tariff.pricePowerP1 || 0) * potenciaContratada.p1 * 365) +
+        ((tariff.pricePowerP2 || 0) * potenciaContratada.p2 * 365) +
+        ((tariff.pricePowerP3 || 0) * potenciaContratada.p3 * 365) +
+        ((tariff.pricePowerP4 || 0) * potenciaContratada.p4 * 365) +
+        ((tariff.pricePowerP5 || 0) * potenciaContratada.p5 * 365) +
+        ((tariff.pricePowerP6 || 0) * potenciaContratada.p6 * 365);
 
       const fixedFee = (tariff.fixedTerm || 0) * 12;
       
       const otherCosts = powerCost; 
       
-      // Impuesto Eléctrico (IE) - 0.5% (0.005), as per Spanish regulation in 2024 (it can vary)
       const subtotal = consumptionCost + otherCosts + fixedFee;
       const impuestoElectrico = subtotal * 0.005;
-
-      // IVA - 21%
       const iva = (subtotal + impuestoElectrico) * 0.21;
       
       const totalCost = subtotal + impuestoElectrico + iva;
@@ -247,16 +294,19 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
       savings = userCurrentCost.totalCost - bestOption.totalCost;
     }
 
+    const totalKwh = totalKwhP1 + totalKwhP2 + totalKwhP3 + totalKwhP4 + totalKwhP5 + totalKwhP6;
+    const totalAnnualKwh = totalKwh * annualizationFactor;
+    
     const resultData: SimulationResult = {
       summary: {
-        totalKwh,
-        totalKwhP1,
-        totalKwhP2,
-        totalKwhP3,
-        totalKwhP4,
-        totalKwhP5,
-        totalKwhP6,
-        period: 'Año Completo',
+        totalKwh: totalAnnualKwh,
+        totalKwhP1: totalKwhP1 * annualizationFactor,
+        totalKwhP2: totalKwhP2 * annualizationFactor,
+        totalKwhP3: totalKwhP3 * annualizationFactor,
+        totalKwhP4: totalKwhP4 * annualizationFactor,
+        totalKwhP5: totalKwhP5 * annualizationFactor,
+        totalKwhP6: totalKwhP6 * annualizationFactor,
+        period: `${firstDate.toLocaleDateString('es-ES')} - ${lastDate.toLocaleDateString('es-ES')} (${daysInPeriod} días)`,
         bestOption: {
           companyName: bestOption.name,
           savings: savings > 0 ? savings : 0,
