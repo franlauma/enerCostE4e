@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -27,57 +28,28 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useCollection, useFirestore } from '@/firebase';
-import { collection, addDoc, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, addDoc, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const EMPTY_TARIFF: Omit<Tariff, 'id'> = { companyName: '', priceKwh: 0, fixedTerm: 0, promo: '' };
 
 export default function TariffsPage() {
   const firestore = useFirestore();
-  const tariffsCollection = useMemo(() => {
+  const tariffsQuery = useMemo(() => {
     if (!firestore) return null;
-    const coll = collection(firestore, 'tariffs');
+    const q = query(collection(firestore, 'tariffs'));
     // This is a temporary workaround to satisfy the memoization check in useCollection
-    (coll as any).__memo = true;
-    return coll;
+    (q as any).__memo = true;
+    return q;
   }, [firestore]);
 
-  const { data: tariffs, isLoading: areTariffsLoading, error } = useCollection<Tariff>(tariffsCollection);
+  const { data: tariffs, isLoading: areTariffsLoading, error } = useCollection<Tariff>(tariffsQuery);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedTariff, setEditedTariff] = useState<Partial<Tariff>>({});
   const [isAdding, setIsAdding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
-
-  // Effect to seed database if it's empty
-  useEffect(() => {
-    if (firestore && !areTariffsLoading && tariffs && tariffs.length === 0) {
-      const seedDatabase = async () => {
-        try {
-          const batch = writeBatch(firestore);
-          MOCK_TARIFFS.forEach(tariff => {
-            const { id, ...tariffData } = tariff; // Don't use local ID for new docs
-            const newDocRef = doc(collection(firestore, 'tariffs'));
-            batch.set(newDocRef, tariffData);
-          });
-          await batch.commit();
-          toast({
-            title: 'Tarifas de ejemplo cargadas',
-            description: 'Se han añadido algunas tarifas para que puedas empezar a probar.',
-          });
-        } catch (e) {
-          console.error('Error al cargar las tarifas de ejemplo: ', e);
-          toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'No se pudieron cargar las tarifas de ejemplo.',
-          });
-        }
-      };
-      seedDatabase();
-    }
-  }, [firestore, areTariffsLoading, tariffs, toast]);
 
   const handleEdit = (tariff: Tariff) => {
     setEditingId(tariff.id);
@@ -246,7 +218,7 @@ export default function TariffsPage() {
         return (
             <TableRow>
                 <TableCell colSpan={5} className="text-center h-24">
-                    Cargando tarifas de ejemplo...
+                    No hay tarifas configuradas. Se crearán automáticamente al realizar una simulación.
                 </TableCell>
             </TableRow>
         )

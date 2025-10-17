@@ -3,10 +3,10 @@
 
 import { z } from 'zod';
 import * as xlsx from 'xlsx';
-import { MOCK_SIMULATION_RESULT, type SimulationResult, type CompanyCost, type Tariff } from '@/lib/data';
+import { MOCK_SIMULATION_RESULT, type SimulationResult, type CompanyCost, type Tariff, MOCK_TARIFFS } from '@/lib/data';
 import { getContextualHelp } from '@/ai/flows/contextual-assistance';
 import { summarizeSimulationResults } from '@/ai/flows/summarize-results-flow';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase/index.server';
 
 const formSchema = z.object({
@@ -26,10 +26,26 @@ type ActionResponse = {
 async function getTariffsFromFirestore(): Promise<Tariff[]> {
     const { firestore } = await initializeFirebase();
     const tariffsCol = collection(firestore, 'tariffs');
-    const snapshot = await getDocs(tariffsCol);
+    let snapshot = await getDocs(tariffsCol);
+
+    // If the collection is empty, seed it with mock data
+    if (snapshot.empty) {
+        console.log("Tariffs collection is empty, seeding with mock data...");
+        const batch = writeBatch(firestore);
+        MOCK_TARIFFS.forEach(tariff => {
+            const newDocRef = doc(tariffsCol); // Firestore will generate an ID
+            batch.set(newDocRef, tariff);
+        });
+        await batch.commit();
+        console.log("Mock tariffs seeded successfully.");
+        // Re-fetch the data after seeding
+        snapshot = await getDocs(tariffsCol);
+    }
+    
     if (snapshot.empty) {
         return [];
     }
+
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tariff));
 }
 
@@ -71,13 +87,18 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
   }
 
   try {
+    const availableTariffs = await getTariffsFromFirestore();
+    if (availableTariffs.length === 0) {
+        throw new Error("No hay tarifas configuradas en la base de datos. Por favor, añada tarifas en la página de 'Tarifas'.");
+    }
+
     const file = validatedFields.data.file as File;
     const buffer = await file.arrayBuffer();
     
     let rawData: any[][];
 
     // Check if it's a CSV or Excel file
-    if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+    if (file.type === 'text/csv' || file.name.endsWith('.csv') || file.type.includes('application/vnd.ms-excel')) {
         const text = new TextDecoder('utf-16le').decode(buffer);
         rawData = parseCsv(text);
     } else {
@@ -126,11 +147,6 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
 
     if (totalKwh === 0) {
         throw new Error("No se pudo calcular un consumo total a partir del archivo. Verifique que los datos de consumo son correctos.");
-    }
-
-    const availableTariffs = await getTariffsFromFirestore();
-    if (availableTariffs.length === 0) {
-        throw new Error("No hay tarifas configuradas en la base de datos. Por favor, añada tarifas en la página de 'Tarifas'.");
     }
 
     const userCurrentTariffName = 'Tu Compañía Actual';
