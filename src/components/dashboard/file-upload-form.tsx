@@ -85,7 +85,7 @@ export default function FileUploadForm({ onFileUpload, onDemo, isLoading }: File
       <CardHeader className="text-center">
         <CardTitle className="font-headline text-3xl">Analiza tu Factura Eléctrica</CardTitle>
         <CardDescription className="!mt-3 text-base">
-          Sube tu archivo Excel para comparar costes entre tarifas y encuentra la mejor opción para ti.
+          Sube tu archivo (Excel o CSV) para comparar costes entre tarifas y encuentra la mejor opción para ti.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -114,7 +114,7 @@ export default function FileUploadForm({ onFileUpload, onDemo, isLoading }: File
                         <p className="mb-2 text-sm text-muted-foreground">
                           <span className="font-semibold">Haz clic para subir</span> o arrastra y suelta
                         </p>
-                        <p className="text-xs text-muted-foreground">Archivo Excel (XLS, XLSX)</p>
+                        <p className="text-xs text-muted-foreground">Archivo Excel (XLS, XLSX) o CSV</p>
                       </div>
                       <Input
                         ref={inputRef}
@@ -122,7 +122,7 @@ export default function FileUploadForm({ onFileUpload, onDemo, isLoading }: File
                         id="file"
                         name="file"
                         className="hidden"
-                        accept=".xlsx, .xls"
+                        accept=".xlsx, .xls, .csv"
                         onChange={handleChange}
                       />
                     </div>

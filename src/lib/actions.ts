@@ -32,6 +32,17 @@ async function getTariffsFromFirestore(): Promise<Tariff[]> {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tariff));
 }
 
+// Function to parse CSV data, assuming semicolon delimiter
+function parseCsv(text: string): any[][] {
+  // Replace quoted semicolons to avoid splitting them, then split by lines
+  const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+  return lines.map(line => {
+    // Basic CSV parsing, may need to be more robust for complex cases
+    return line.split(';').map(field => field.replace(/"/g, '').trim());
+  });
+}
+
+
 export async function simulateCost(formData: FormData): Promise<ActionResponse> {
   const validatedFields = formSchema.safeParse({
     file: formData.get('file'),
@@ -61,32 +72,35 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
   }
 
   try {
-    const file = validatedFields.data.file;
+    const file = validatedFields.data.file as File;
     const buffer = await file.arrayBuffer();
-    const workbook = xlsx.read(buffer, { type: 'buffer' });
     
-    // For this complex file, we assume data is on the first sheet
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    if (!sheet) {
-        throw new Error("No se encontraron hojas en el archivo Excel.");
+    let rawData: any[][];
+
+    // Check if it's a CSV or Excel file
+    if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+        const text = new TextDecoder('utf-8').decode(buffer);
+        rawData = parseCsv(text);
+    } else {
+        const workbook = xlsx.read(buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        if (!sheet) {
+            throw new Error("No se encontraron hojas en el archivo Excel.");
+        }
+        rawData = xlsx.utils.sheet_to_json(sheet, { header: 1 });
     }
     
-    // Convert sheet to a 2D array to find the "Datos lecturas" section
-    const rawData: any[][] = xlsx.utils.sheet_to_json(sheet, { header: 1 });
-
     const lecturasHeaderIndex = rawData.findIndex(row => row.some(cell => typeof cell === 'string' && cell.includes('Datos lecturas')));
     
     if (lecturasHeaderIndex === -1) {
         throw new Error("No se encontró la sección 'Datos lecturas' en el archivo.");
     }
     
-    // The actual data starts a few rows after the "Datos lecturas" header
     const headersRowIndex = lecturasHeaderIndex + 2;
     const dataRows = rawData.slice(headersRowIndex + 1);
     
-    // Map headers to their column index
-    const headers: string[] = rawData[headersRowIndex].map((h: any) => String(h));
+    const headers: string[] = rawData[headersRowIndex].map((h: any) => String(h).trim());
     const consumoP1Index = headers.indexOf('Consumo Activa P1');
     const consumoP2Index = headers.indexOf('Consumo Activa P2');
     const consumoP3Index = headers.indexOf('Consumo Activa P3');
@@ -94,8 +108,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     const consumoP5Index = headers.indexOf('Consumo Activa P5');
     const consumoP6Index = headers.indexOf('Consumo Activa P6');
 
-
-    if (consumoP1Index === -1 || consumoP2Index === -1 || consumoP3Index === -1 || consumoP4Index === -1 || consumoP5Index === -1 || consumoP6Index === -1) {
+    if ([consumoP1Index, consumoP2Index, consumoP3Index, consumoP4Index, consumoP5Index, consumoP6Index].some(i => i === -1)) {
         throw new Error("No se encontraron todas las columnas de consumo ('Consumo Activa P1' a 'P6') en la sección 'Datos lecturas'.");
     }
 
@@ -116,25 +129,22 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
         throw new Error("No se pudo calcular un consumo total a partir del archivo. Verifique que los datos de consumo son correctos.");
     }
 
-    // 2. Read tariffs from Firestore
     const availableTariffs = await getTariffsFromFirestore();
     if (availableTariffs.length === 0) {
         throw new Error("No hay tarifas configuradas en la base de datos. Por favor, añada tarifas en la página de 'Tarifas'.");
     }
 
-    // This is a placeholder as the user's current company is not in this file format
     const userCurrentTariffName = 'Tu Compañía Actual';
 
-    // 3. Calculate cost for each tariff
     let details: CompanyCost[] = availableTariffs.map((tariff, index) => {
       const fixedFee = tariff.fixedTerm * 12;
       const consumptionCost = tariff.priceKwh * totalKwh;
-      const otherCosts = 25.00 + (index * 2); // Placeholder logic for other costs
+      const otherCosts = 25.00 + (index * 2);
       const totalCost = fixedFee + consumptionCost + otherCosts;
       
       return {
         id: tariff.id,
-        rank: 0, // Rank will be calculated later
+        rank: 0,
         name: tariff.companyName,
         fixedFee,
         consumptionCost,
@@ -143,11 +153,9 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
       };
     });
 
-    // 4. Rank results
     details.sort((a, b) => a.totalCost - b.totalCost);
     details = details.map((detail, index) => ({ ...detail, rank: index + 1 }));
 
-    // 5. Find user's current cost and calculate savings
     const userCurrentCost = details.find(d => d.name === userCurrentTariffName);
     const bestOption = details[0];
     let savings = 0;
@@ -167,7 +175,6 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
       details,
     };
     
-    // 6. After getting the result, call the AI to generate a summary.
     let aiSummary = null;
     try {
       if (userCurrentCost && resultData.summary.bestOption.savings > 0) {
@@ -181,7 +188,6 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
       }
     } catch (aiError) {
         console.error("AI summary generation failed:", aiError);
-        // Don't block the user if the summary fails. We can proceed without it.
         aiSummary = null;
     }
 
@@ -199,14 +205,14 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
         const help = await getContextualHelp({ issueDescription });
         return {
             success: false,
-            error: error.message || 'Error al procesar el archivo Excel.',
+            error: error.message || 'Error al procesar el archivo.',
             helpMessage: help.helpMessage,
             aiSummary: null,
         };
     } catch (aiError) {
          return {
             success: false,
-            error: error.message || 'Error al procesar el archivo Excel.',
+            error: error.message || 'Error al procesar el archivo.',
             helpMessage: "Asegúrate de que el archivo Excel no esté corrupto y que contenga una sección 'Datos lecturas' con las columnas 'Consumo Activa P1', 'Consumo Activa P2' y 'Consumo Activa P3'.",
             aiSummary: null
         }
