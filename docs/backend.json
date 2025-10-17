@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -104,6 +105,34 @@
         "priceKwhP6": {
           "type": "number",
           "description": "Cost per kilowatt-hour for period 6."
+        },
+        "pricePowerP1": {
+          "type": "number",
+          "description": "Cost per kW per day for contracted power in period 1."
+        },
+        "pricePowerP2": {
+          "type": "number",
+          "description": "Cost per kW per day for contracted power in period 2."
+        },
+        "pricePowerP3": {
+          "type": "number",
+          "description": "Cost per kW per day for contracted power in period 3."
+        },
+        "pricePowerP4": {
+          "type": "number",
+          "description": "Cost per kW per day for contracted power in period 4."
+        },
+        "pricePowerP5": {
+          "type": "number",
+          "description": "Cost per kW per day for contracted power in period 5."
+        },
+        "pricePowerP6": {
+          "type": "number",
+          "description": "Cost per kW per day for contracted power in period 6."
+        },
+        "surplusCompensationPrice": {
+            "type": "number",
+            "description": "Price per kWh for surplus energy fed back to the grid."
         },
         "fixedTerm": {
           "type": "number",

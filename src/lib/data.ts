@@ -1,3 +1,4 @@
+
 export type CompanyCost = {
   id: string;
   rank: number;
@@ -99,14 +100,21 @@ export type Tariff = {
   priceKwhP4: number;
   priceKwhP5: number;
   priceKwhP6: number;
+  pricePowerP1: number;
+  pricePowerP2: number;
+  pricePowerP3: number;
+  pricePowerP4: number;
+  pricePowerP5: number;
+  pricePowerP6: number;
+  surplusCompensationPrice: number;
   fixedTerm: number;
   promo: string;
 };
 
 export const MOCK_TARIFFS: Omit<Tariff, 'id'>[] = [
-    { companyName: 'Tu Compañía Actual', priceKwhP1: 0.22, priceKwhP2: 0.20, priceKwhP3: 0.18, priceKwhP4: 0.17, priceKwhP5: 0.16, priceKwhP6: 0.15, fixedTerm: 5.83, promo: 'Tarifa Base' },
-    { companyName: 'EcoLuz', priceKwhP1: 0.15, priceKwhP2: 0.14, priceKwhP3: 0.13, priceKwhP4: 0.12, priceKwhP5: 0.11, priceKwhP6: 0.10, fixedTerm: 5.00, promo: '20% dto. 6 meses' },
-    { companyName: 'Energía Clara', priceKwhP1: 0.16, priceKwhP2: 0.15, priceKwhP3: 0.14, priceKwhP4: 0.13, priceKwhP5: 0.12, priceKwhP6: 0.11, fixedTerm: 4.58, promo: 'Precio fijo' },
-    { companyName: 'Solaria Power', priceKwhP1: 0.155, priceKwhP2: 0.145, priceKwhP3: 0.135, priceKwhP4: 0.125, priceKwhP5: 0.115, priceKwhP6: 0.105, fixedTerm: 5.42, promo: 'Sin permanencia' },
-    { companyName: 'Iberdrola', priceKwhP1: 0.20, priceKwhP2: 0.19, priceKwhP3: 0.18, priceKwhP4: 0.17, priceKwhP5: 0.16, priceKwhP6: 0.15, fixedTerm: 6.67, promo: 'Plan Noche' },
+    { companyName: 'Tu Compañía Actual', priceKwhP1: 0.22, priceKwhP2: 0.20, priceKwhP3: 0.18, priceKwhP4: 0.17, priceKwhP5: 0.16, priceKwhP6: 0.15, fixedTerm: 5.83, promo: 'Tarifa Base', pricePowerP1: 0.1, pricePowerP2: 0.08, pricePowerP3: 0.07, pricePowerP4: 0.06, pricePowerP5: 0.05, pricePowerP6: 0.04, surplusCompensationPrice: 0.05 },
+    { companyName: 'EcoLuz', priceKwhP1: 0.15, priceKwhP2: 0.14, priceKwhP3: 0.13, priceKwhP4: 0.12, priceKwhP5: 0.11, priceKwhP6: 0.10, fixedTerm: 5.00, promo: '20% dto. 6 meses', pricePowerP1: 0.09, pricePowerP2: 0.08, pricePowerP3: 0.07, pricePowerP4: 0.06, pricePowerP5: 0.05, pricePowerP6: 0.04, surplusCompensationPrice: 0.06 },
+    { companyName: 'Energía Clara', priceKwhP1: 0.16, priceKwhP2: 0.15, priceKwhP3: 0.14, priceKwhP4: 0.13, priceKwhP5: 0.12, priceKwhP6: 0.11, fixedTerm: 4.58, promo: 'Precio fijo', pricePowerP1: 0.095, pricePowerP2: 0.085, pricePowerP3: 0.075, pricePowerP4: 0.065, pricePowerP5: 0.055, pricePowerP6: 0.045, surplusCompensationPrice: 0.055 },
+    { companyName: 'Solaria Power', priceKwhP1: 0.155, priceKwhP2: 0.145, priceKwhP3: 0.135, priceKwhP4: 0.125, priceKwhP5: 0.115, priceKwhP6: 0.105, fixedTerm: 5.42, promo: 'Sin permanencia', pricePowerP1: 0.11, pricePowerP2: 0.09, pricePowerP3: 0.08, pricePowerP4: 0.07, pricePowerP5: 0.06, pricePowerP6: 0.05, surplusCompensationPrice: 0.065 },
+    { companyName: 'Iberdrola', priceKwhP1: 0.20, priceKwhP2: 0.19, priceKwhP3: 0.18, priceKwhP4: 0.17, priceKwhP5: 0.16, priceKwhP6: 0.15, fixedTerm: 6.67, promo: 'Plan Noche', pricePowerP1: 0.12, pricePowerP2: 0.10, pricePowerP3: 0.09, pricePowerP4: 0.08, pricePowerP5: 0.07, pricePowerP6: 0.06, surplusCompensationPrice: 0.04 },
 ];

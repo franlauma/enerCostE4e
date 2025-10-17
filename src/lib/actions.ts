@@ -34,7 +34,7 @@ async function getTariffsFromFirestore(): Promise<Tariff[]> {
         const batch = writeBatch(firestore);
         MOCK_TARIFFS.forEach(tariff => {
             // Firestore will generate an ID if we use doc(collectionRef)
-            const newDocRef = doc(tariffsCol); 
+            const newDocRef = doc(tariffsCol);
             batch.set(newDocRef, tariff);
         });
         await batch.commit();
@@ -42,7 +42,7 @@ async function getTariffsFromFirestore(): Promise<Tariff[]> {
         // Re-fetch the data after seeding
         snapshot = await getDocs(tariffsCol);
     }
-    
+
     if (snapshot.empty) {
         // This case should ideally not be reached after seeding, but it's a good fallback.
         console.error("Failed to seed or retrieve tariffs. Returning empty array.");
@@ -69,7 +69,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
   if (!validatedFields.success) {
     const errorMessages = validatedFields.error.flatten().fieldErrors.file;
     const issueDescription = `El usuario intentó subir un archivo, pero hubo un error de validación. El error fue: ${errorMessages?.join(', ') || 'Archivo no válido'}. El archivo podría estar vacío o no ser un archivo.`;
-    
+
     try {
         const help = await getContextualHelp({ issueDescription });
         return {
@@ -97,14 +97,12 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
 
     const file = validatedFields.data.file as File;
     const buffer = await file.arrayBuffer();
-    
+
     let rawData: any[][];
 
     // Check if it's a CSV or Excel file
-    if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
-        const text = new TextDecoder('utf-16le').decode(buffer);
-        rawData = parseCsv(text);
-    } else {
+    if (file.type === 'text/csv' || file.name.endsWith('.csv') || file.type.includes('spreadsheetml') || file.name.endsWith('.xls') || file.name.endsWith('.xlsx')) {
+      try {
         const workbook = xlsx.read(buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
@@ -112,17 +110,23 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
             throw new Error("No se encontraron hojas en el archivo Excel.");
         }
         rawData = xlsx.utils.sheet_to_json(sheet, { header: 1 });
+      } catch (e) {
+          const text = new TextDecoder('utf-16le').decode(buffer);
+          rawData = parseCsv(text);
+      }
+    } else {
+        throw new Error("Formato de archivo no soportado. Por favor, sube un archivo Excel o CSV.");
     }
-    
+
     const lecturasHeaderIndex = rawData.findIndex(row => row.some(cell => typeof cell === 'string' && cell.includes('Datos lecturas')));
-    
+
     if (lecturasHeaderIndex === -1) {
         throw new Error("No se encontró la sección 'Datos lecturas' en el archivo.");
     }
-    
+
     const headersRowIndex = lecturasHeaderIndex + 2;
     const dataRows = rawData.slice(headersRowIndex + 1);
-    
+
     const headers: string[] = rawData[headersRowIndex].map((h: any) => String(h).trim());
     const consumoP1Index = headers.indexOf('Consumo Activa P1');
     const consumoP2Index = headers.indexOf('Consumo Activa P2');
@@ -136,7 +140,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     }
 
     let totalKwhP1 = 0, totalKwhP2 = 0, totalKwhP3 = 0, totalKwhP4 = 0, totalKwhP5 = 0, totalKwhP6 = 0;
-    
+
     for (const row of dataRows) {
         if (!row || row.length === 0 || !row[0]) continue; // Skip empty/invalid rows
 
@@ -158,17 +162,17 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
 
     let details: CompanyCost[] = availableTariffs.map((tariff, index) => {
       const fixedFee = tariff.fixedTerm * 12;
-      const consumptionCost = 
+      const consumptionCost =
         (tariff.priceKwhP1 * totalKwhP1) +
         (tariff.priceKwhP2 * totalKwhP2) +
         (tariff.priceKwhP3 * totalKwhP3) +
         (tariff.priceKwhP4 * totalKwhP4) +
         (tariff.priceKwhP5 * totalKwhP5) +
         (tariff.priceKwhP6 * totalKwhP6);
-        
+
       const otherCosts = 25.00 + (index * 2); // Mocked other costs
       const totalCost = fixedFee + consumptionCost + otherCosts;
-      
+
       return {
         id: tariff.id,
         rank: 0,
@@ -207,7 +211,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
       },
       details,
     };
-    
+
     let aiSummary = null;
     try {
       if (userCurrentCost && resultData.summary.bestOption.savings > 0) {
@@ -233,7 +237,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
   } catch(error: any) {
     console.error("Simulation failed:", error);
     const issueDescription = `El usuario subió un archivo, pero falló el procesamiento con el error: ${error.message}. El formato del archivo podría ser incorrecto o estar corrupto.`;
-    
+
     try {
         const help = await getContextualHelp({ issueDescription });
         return {
