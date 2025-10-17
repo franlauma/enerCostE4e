@@ -12,7 +12,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { Tariff } from '@/lib/data';
+import { MOCK_TARIFFS, type Tariff } from '@/lib/data';
 import { Edit, Save, X, PlusCircle, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -27,7 +27,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useCollection, useFirestore } from '@/firebase';
-import { collection, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const EMPTY_TARIFF: Omit<Tariff, 'id'> = { companyName: '', priceKwh: 0, fixedTerm: 0, promo: '' };
@@ -41,6 +41,7 @@ export default function TariffsPage() {
     (coll as any).__memo = true;
     return coll;
   }, [firestore]);
+
   const { data: tariffs, isLoading: areTariffsLoading, error } = useCollection<Tariff>(tariffsCollection);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,6 +49,35 @@ export default function TariffsPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+
+  // Effect to seed database if it's empty
+  useEffect(() => {
+    if (firestore && !areTariffsLoading && tariffs && tariffs.length === 0) {
+      const seedDatabase = async () => {
+        try {
+          const batch = writeBatch(firestore);
+          MOCK_TARIFFS.forEach(tariff => {
+            const { id, ...tariffData } = tariff; // Don't use local ID for new docs
+            const newDocRef = doc(collection(firestore, 'tariffs'));
+            batch.set(newDocRef, tariffData);
+          });
+          await batch.commit();
+          toast({
+            title: 'Tarifas de ejemplo cargadas',
+            description: 'Se han añadido algunas tarifas para que puedas empezar a probar.',
+          });
+        } catch (e) {
+          console.error('Error al cargar las tarifas de ejemplo: ', e);
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'No se pudieron cargar las tarifas de ejemplo.',
+          });
+        }
+      };
+      seedDatabase();
+    }
+  }, [firestore, areTariffsLoading, tariffs, toast]);
 
   const handleEdit = (tariff: Tariff) => {
     setEditingId(tariff.id);
@@ -216,7 +246,7 @@ export default function TariffsPage() {
         return (
             <TableRow>
                 <TableCell colSpan={5} className="text-center h-24">
-                    No hay tarifas configuradas. ¡Añade la primera!
+                    Cargando tarifas de ejemplo...
                 </TableCell>
             </TableRow>
         )
