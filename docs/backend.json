@@ -66,6 +66,35 @@
         "inputFileName",
         "results"
       ]
+    },
+    "Tariff": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Tariff",
+      "type": "object",
+      "description": "Represents an electricity tariff from a provider.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Tariff."
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Name of the energy provider."
+        },
+        "priceKwh": {
+          "type": "number",
+          "description": "Cost per kilowatt-hour."
+        },
+        "fixedTerm": {
+          "type": "number",
+          "description": "Fixed monthly fee."
+        },
+        "promo": {
+          "type": "string",
+          "description": "Description of any current promotion."
+        }
+      },
+      "required": ["id", "companyName", "priceKwh", "fixedTerm"]
     }
   },
   "auth": {
@@ -111,8 +140,24 @@
             }
           ]
         }
+      },
+      {
+        "path": "/tariffs/{tariffId}",
+        "definition": {
+          "entityName": "Tariff",
+          "schema": {
+            "$ref": "#/backend/entities/Tariff"
+          },
+          "description": "Stores all available electricity tariffs. This is public data, readable by any authenticated user, but only writable by admins (future capability).",
+          "params": [
+            {
+              "name": "tariffId",
+              "description": "The unique identifier for the tariff."
+            }
+          ]
+        }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability. User data is stored under `/users/{userId}`, providing a clear ownership model. Simulations, which belong to users, are stored under `/users/{userId}/simulations/{simulationId}`. This hierarchical path enforces clear ownership and simplifies security rules.  The structure avoids `get()` calls in security rules by denormalizing authorization context. For the current requirements no denormalization is needed as all data is private to the user.\n\nThe chosen structure is also tailored to support secure `list` operations (QAPs). Path-based ownership ensures that listing simulations under `/users/{userId}/simulations` is secure without needing complex filtering in rules; only the authenticated user can access their own simulations."
+    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability. User data is stored under `/users/{userId}`, providing a clear ownership model. Simulations, which belong to users, are stored under `/users/{userId}/simulations/{simulationId}`. This hierarchical path enforces clear ownership and simplifies security rules. The `/tariffs` collection is a root collection as it contains public data accessible to all users for simulations. The structure avoids `get()` calls in security rules by denormalizing authorization context. For the current requirements no denormalization is needed as all data is private to the user, except for tariffs which are public.\n\nThe chosen structure is also tailored to support secure `list` operations (QAPs). Path-based ownership ensures that listing simulations under `/users/{userId}/simulations` is secure without needing complex filtering in rules; only the authenticated user can access their own simulations."
   }
 }
