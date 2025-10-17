@@ -25,10 +25,14 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Firebase credentials
+src/firebase/config.ts
 
 # vercel
 .vercel
@@ -37,4 +41,7 @@ yarn-error.log*
 *.tar.gz
 *.zip
 project.tar.gz
-project.tar.gz
+
+# Excel files (datos sensibles)
+*.xlsx
+*.xls

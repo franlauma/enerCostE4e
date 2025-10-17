@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview Provides contextual assistance to users within the EnerCost Analyzer application.
+ * @fileOverview Provides contextual assistance to users within the E4e soluciones - Simulación factura application.
  *
  * - `getContextualHelp` -  A function that provides AI-powered, context-sensitive help based on the given issue description.
  * - `ContextualHelpInput` - The input type for the `getContextualHelp` function.
@@ -31,7 +31,7 @@ const prompt = ai.definePrompt({
   name: 'contextualHelpPrompt',
   input: {schema: ContextualHelpInputSchema},
   output: {schema: ContextualHelpOutputSchema},
-  prompt: `You are an AI assistant embedded within the EnerCost Analyzer application. Your goal is to provide helpful, context-sensitive guidance to users based on the issues they are encountering. Use a friendly and professional tone.
+  prompt: `You are an AI assistant embedded within the E4e soluciones - Simulación factura application. Your goal is to provide helpful, context-sensitive guidance to users based on the issues they are encountering. Use a friendly and professional tone.
 
 Issue Description: {{{issueDescription}}}
 

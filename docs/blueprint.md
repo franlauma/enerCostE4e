@@ -1,4 +1,4 @@
-# **App Name**: EnerCost Analyzer
+# **App Name**: E4e soluciones - Simulación factura
 
 ## Core Features:
 

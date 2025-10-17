@@ -13,6 +13,9 @@ const NavLinks = () => (
     <Button asChild variant="ghost">
       <Link href="/clients">Clientes</Link>
     </Button>
+    <Button asChild variant="ghost">
+      <Link href="/tariffs">Tarifas</Link>
+    </Button>
   </>
 );
 
@@ -23,7 +26,7 @@ export default function Header() {
         <div className="flex items-center space-x-2 mr-6">
           <Link href="/" className="flex items-center space-x-2">
             <Logo className="h-6 w-6" />
-            <span className="font-headline text-xl font-bold tracking-tight">EnerCost Analyzer</span>
+            <span className="font-headline text-xl font-bold tracking-tight">E4e soluciones - Simulación factura</span>
           </Link>
         </div>
 
@@ -45,7 +48,7 @@ export default function Header() {
                   <SheetTitle>
                     <Link href="/" className="flex items-center space-x-2">
                         <Logo className="h-6 w-6" />
-                        <span className="font-headline text-lg font-bold">EnerCost</span>
+                        <span className="font-headline text-lg font-bold">E4e soluciones</span>
                     </Link>
                   </SheetTitle>
                 </SheetHeader>

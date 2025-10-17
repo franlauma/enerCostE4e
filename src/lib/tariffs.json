@@ -1,25 +1,27 @@
 
 [
     {
-      "companyName": "Tu Compañía Actual",
-      "priceKwhP1": 0.1352,
-      "priceKwhP2": 0.1352,
-      "priceKwhP3": 0.1352,
-      "priceKwhP4": 0.1352,
-      "priceKwhP5": 0.1352,
-      "priceKwhP6": 0.1352,
+      "id": "1",
+      "companyName": "IBERDROLA",
+      "priceKwhP1": 0.135200,
+      "priceKwhP2": 0.135200,
+      "priceKwhP3": 0.135200,
+      "priceKwhP4": 0.135200,
+      "priceKwhP5": 0.135200,
+      "priceKwhP6": 0.135200,
       "pricePowerP1": 0.057178,
       "pricePowerP2": 0.037287,
       "pricePowerP3": 0.025972,
-      "pricePowerP4": 0.02178,
+      "pricePowerP4": 0.021780,
       "pricePowerP5": 0.014602,
-      "pricePowerP6": 0.01189,
+      "pricePowerP6": 0.011890,
       "surplusCompensationPrice": 0.07,
       "fixedTerm": 6.67,
       "promo": "Tarifa Base Iberdrola"
     },
     {
-      "companyName": "Audax Renovables",
+      "id": "2",
+      "companyName": "AUDAX RENOVABLES",
       "priceKwhP1": 0.178219,
       "priceKwhP2": 0.154353,
       "priceKwhP3": 0.128553,
@@ -37,6 +39,7 @@
       "promo": "Tarifa Audax"
     },
     {
+      "id": "3",
       "companyName": "EcoLuz",
       "priceKwhP1": 0.15,
       "priceKwhP2": 0.14,
@@ -55,6 +58,7 @@
       "promo": "20% dto. 6 meses"
     },
     {
+      "id": "4",
       "companyName": "Energía Clara",
       "priceKwhP1": 0.16,
       "priceKwhP2": 0.15,
@@ -73,6 +77,7 @@
       "promo": "Precio fijo"
     },
     {
+      "id": "5",
       "companyName": "Solaria Power",
       "priceKwhP1": 0.155,
       "priceKwhP2": 0.145,
