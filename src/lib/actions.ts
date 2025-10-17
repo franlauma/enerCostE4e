@@ -34,10 +34,8 @@ async function getTariffsFromFirestore(): Promise<Tariff[]> {
 
 // Function to parse CSV data, assuming semicolon delimiter
 function parseCsv(text: string): any[][] {
-  // Replace quoted semicolons to avoid splitting them, then split by lines
-  const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line);
   return lines.map(line => {
-    // Basic CSV parsing, may need to be more robust for complex cases
     return line.split(';').map(field => field.replace(/"/g, '').trim());
   });
 }
@@ -65,7 +63,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
         return {
             success: false,
             error: errorMessages?.[0] || 'Error de validación.',
-            helpMessage: "Asegúrate de seleccionar un archivo Excel (.xlsx, .xls) que no esté vacío. El archivo debe contener los datos correctos para que podamos procesarlo.",
+            helpMessage: "Asegúrate de seleccionar un archivo Excel (.xlsx, .xls) o CSV que no esté vacío. El archivo debe contener los datos correctos para que podamos procesarlo.",
             aiSummary: null,
         };
     }
@@ -213,7 +211,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
          return {
             success: false,
             error: error.message || 'Error al procesar el archivo.',
-            helpMessage: "Asegúrate de que el archivo Excel no esté corrupto y que contenga una sección 'Datos lecturas' con las columnas 'Consumo Activa P1', 'Consumo Activa P2' y 'Consumo Activa P3'.",
+            helpMessage: "Asegúrate de que el archivo Excel o CSV no esté corrupto y que contenga una sección 'Datos lecturas' con las columnas de consumo requeridas.",
             aiSummary: null
         }
     }
