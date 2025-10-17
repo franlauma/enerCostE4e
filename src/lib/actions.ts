@@ -33,7 +33,8 @@ async function getTariffsFromFirestore(): Promise<Tariff[]> {
         console.log("Tariffs collection is empty, seeding with mock data...");
         const batch = writeBatch(firestore);
         MOCK_TARIFFS.forEach(tariff => {
-            const newDocRef = doc(tariffsCol); // Firestore will generate an ID
+            // Firestore will generate an ID if we use doc(collectionRef)
+            const newDocRef = doc(tariffsCol); 
             batch.set(newDocRef, tariff);
         });
         await batch.commit();
@@ -43,6 +44,8 @@ async function getTariffsFromFirestore(): Promise<Tariff[]> {
     }
     
     if (snapshot.empty) {
+        // This case should ideally not be reached after seeding, but it's a good fallback.
+        console.error("Failed to seed or retrieve tariffs. Returning empty array.");
         return [];
     }
 
@@ -98,7 +101,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     let rawData: any[][];
 
     // Check if it's a CSV or Excel file
-    if (file.type === 'text/csv' || file.name.endsWith('.csv') || file.type.includes('application/vnd.ms-excel')) {
+    if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
         const text = new TextDecoder('utf-16le').decode(buffer);
         rawData = parseCsv(text);
     } else {
@@ -221,7 +224,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
         return {
             success: false,
             error: error.message || 'Error al procesar el archivo.',
-            helpMessage: help.helpMessage,
+            helpMessage: help.message,
             aiSummary: null,
         };
     } catch (aiError) {
