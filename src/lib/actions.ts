@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -77,7 +78,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
 
     // Check if it's a CSV or Excel file
     if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
-        const text = new TextDecoder('utf-8').decode(buffer);
+        const text = new TextDecoder('utf-16le').decode(buffer);
         rawData = parseCsv(text);
     } else {
         const workbook = xlsx.read(buffer, { type: 'buffer' });
