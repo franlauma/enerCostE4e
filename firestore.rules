@@ -21,7 +21,7 @@ service cloud.firestore {
 
       allow get: if isSignedIn() && isOwner(userId);
       allow list: if false; // User listing is not allowed.
-      allow create: if isSignedIn() && isOwner(userId) && request.auth.uid == userId;
+      allow create: if isSignedIn() && isOwner(userId);
       allow update: if isSignedIn() && isOwner(userId);
       allow delete: if isSignedIn() && isOwner(userId);
     }
