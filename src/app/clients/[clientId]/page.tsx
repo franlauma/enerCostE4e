@@ -2,9 +2,10 @@
 
 import { useCollection, useDoc } from '@/firebase';
 import React from 'react';
-import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import {
   Table,
   TableBody,
@@ -18,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft, FileText, Trash2, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -51,6 +52,57 @@ export default function ClientDetailPage({ params }: { params: { clientId: strin
     // The date might be a Firebase Timestamp object, so convert it to a JS Date.
     const jsDate = date.toDate ? date.toDate() : new Date(date);
     return format(jsDate, "dd 'de' MMMM, yyyy 'a las' HH:mm", { locale: es });
+  };
+
+  const handleDeleteSimulation = async (simulationId: string) => {
+    if (!firestore || !clientId) return;
+    
+    try {
+      const simulationRef = doc(firestore, `users/${clientId}/simulations`, simulationId);
+      await deleteDoc(simulationRef);
+      // The UI will update automatically due to the real-time listener
+    } catch (error) {
+      console.error('Error deleting simulation:', error);
+    }
+  };
+
+  const handleViewResults = (simulation: any) => {
+    try {
+      const results = JSON.parse(simulation.results);
+      const summary = results.summary;
+      
+      // Create a more detailed results display
+      const resultsData = {
+        bestOption: summary.bestOption,
+        currentOption: summary.currentOption,
+        savings: summary.bestOption.savings,
+        inputFile: simulation.inputFileName,
+        simulationDate: formatDate(simulation.simulationDate)
+      };
+      
+      // Show detailed results in a more user-friendly format
+      const message = `📊 RESULTADOS DE SIMULACIÓN
+      
+📅 Fecha: ${resultsData.simulationDate}
+📁 Archivo: ${resultsData.inputFile}
+
+🏆 MEJOR OPCIÓN:
+• Empresa: ${resultsData.bestOption.companyName}
+• Ahorro: ${new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(resultsData.savings)}
+• Coste anual: ${new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(resultsData.bestOption.totalCost)}
+
+📈 SITUACIÓN ACTUAL:
+• Empresa: ${resultsData.currentOption.companyName}
+• Coste anual: ${new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(resultsData.currentOption.totalCost)}
+
+💰 AHORRO POTENCIAL: ${new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(resultsData.savings)}`;
+      
+      alert(message);
+    } catch (error) {
+      console.error('Error parsing results:', error);
+      console.log('Simulation data:', simulation);
+      alert('Error al mostrar los resultados. Los datos pueden estar en un formato no esperado.');
+    }
   };
 
 
@@ -101,7 +153,7 @@ export default function ClientDetailPage({ params }: { params: { clientId: strin
                             <TableHead>Fecha de Simulación</TableHead>
                             <TableHead>Archivo de Entrada</TableHead>
                             <TableHead className="text-right">Ahorro Estimado</TableHead>
-                            <TableHead className="w-[120px] text-center">Resultados</TableHead>
+                            <TableHead className="w-[160px] text-center">Acciones</TableHead>
                         </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -111,7 +163,7 @@ export default function ClientDetailPage({ params }: { params: { clientId: strin
                                 <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                                 <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                                 <TableCell className="text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
-                                <TableCell className="text-center"><Skeleton className="h-8 w-20 rounded-md mx-auto" /></TableCell>
+                                <TableCell className="text-center"><Skeleton className="h-8 w-32 rounded-md mx-auto" /></TableCell>
                             </TableRow>
                             ))}
                         {!areSimulationsLoading && simulations && simulations.length === 0 && (
@@ -131,12 +183,51 @@ export default function ClientDetailPage({ params }: { params: { clientId: strin
                                     {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(JSON.parse(sim.results).summary.bestOption.savings)}
                                 </TableCell>
                                 <TableCell className="text-center">
-                                <Button asChild variant="ghost" size="icon">
-                                    {/* In the future, this could link to a detailed view of the simulation result */}
-                                    <Link href="#">
-                                      <FileText className="h-4 w-4" />
-                                    </Link>
-                                </Button>
+                                    <div className="flex items-center justify-center gap-2">
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon"
+                                            onClick={() => handleViewResults(sim)}
+                                            title="Ver resultados"
+                                        >
+                                            <FileText className="h-4 w-4" />
+                                        </Button>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon"
+                                                    title="Eliminar simulación"
+                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle className="flex items-center gap-2">
+                                                        <AlertTriangle className="h-5 w-5 text-red-600" />
+                                                        Confirmar eliminación
+                                                    </AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        ¿Estás seguro de que quieres eliminar esta simulación? Esta acción no se puede deshacer.
+                                                        <br /><br />
+                                                        <strong>Fecha:</strong> {formatDate(sim.simulationDate)}<br />
+                                                        <strong>Archivo:</strong> {sim.inputFileName}
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                    <AlertDialogAction 
+                                                        onClick={() => handleDeleteSimulation(sim.id)}
+                                                        className="bg-red-600 hover:bg-red-700"
+                                                    >
+                                                        Eliminar
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </div>
                                 </TableCell>
                             </TableRow>
                             ))}

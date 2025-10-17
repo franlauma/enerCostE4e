@@ -1,15 +1,123 @@
 /**
- * @fileoverview Firestore Security Rules for E4e soluciones - Development Mode
- * 
- * TEMPORARY DEVELOPMENT RULES - Allows full access for development
- * TODO: Replace with proper security rules for production
+ * @fileoverview Firestore Security Rules for EnerCost Analyzer.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for user profiles and simulations.
+ * Tariffs are publicly readable but not writable in this version.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles, accessible only to the owning user.
+ * - /users/{userId}/simulations/{simulationId}: Stores simulation data for each user, accessible only to the owning user.
+ * - /tariffs/{tariffId}: Stores public tariff data, readable by all authenticated users.  Writes are currently disabled.
+ *
+ * Key Security Decisions:
+ * - Users cannot list all users (the /users collection).
+ * - Simulations are strictly owned by the user; no shared access is implemented.
+ * - All authenticated users can read tariff information.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow all authenticated users full access for development
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+
+    /**
+     * @description Restricts access to the /users collection. Users cannot be listed.
+     * @path /databases/{database}/documents/users
+     * @allow (get) N/A - There is no `get` operation on the collection itself.
+     * @allow (list) A request from a user to list all users in the database will be denied.
+     * @allow (create) N/A - Documents are created at /users/{userId}
+     * @allow (update) N/A - Documents are updated at /users/{userId}
+     * @allow (delete) N/A - Documents are deleted at /users/{userId}
+     * @deny (list) A request with valid auth to list the /users collection.
+     * @principle Prevents enumeration of all users in the database.
+     */
+    match /users {
+        allow get: if false;
+        allow list: if false;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
+    }
+
+    /**
+     * @description Controls access to individual user profiles.
+     * @path /databases/{database}/documents/users/{userId}
+     * @allow (get) A request from a user with auth.uid == userId to read their own profile.
+     * @allow (list) N/A - There is no `list` operation on a single document.
+     * @allow (create) A request from a user with auth.uid == userId to create their own profile (self-registration).
+     * @allow (update) A request from a user with auth.uid == userId to update their own profile.
+     * @allow (delete) A request from a user with auth.uid == userId to delete their own profile.
+     * @deny (get) A request from a user with auth.uid != userId to read another user's profile.
+     * @deny (create) A request from a user with auth.uid != userId to create a profile for another user.
+     * @deny (update) A request from a user with auth.uid != userId to update another user's profile.
+     * @deny (delete) A request from a user with auth.uid != userId to delete another user's profile.
+     * @principle Enforces document ownership for all operations on user profiles.
+     */
+    match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+          return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to simulations for a specific user.
+     * @path /databases/{database}/documents/users/{userId}/simulations/{simulationId}
+     * @allow (get) A request from a user with auth.uid == userId to read their own simulation data.
+     * @allow (list) A request from a user with auth.uid == userId to list their own simulation data.
+     * @allow (create) A request from a user with auth.uid == userId to create simulation data under their user ID.
+     * @allow (update) A request from a user with auth.uid == userId to update their own simulation data.
+     * @allow (delete) A request from a user with auth.uid == userId to delete their own simulation data.
+     * @deny (get) A request from a user with auth.uid != userId to read another user's simulation data.
+     * @deny (list) A request from a user with auth.uid != userId to list another user's simulation data.
+     * @deny (create) A request from a user with auth.uid != userId to create simulation data under another user's ID.
+     * @deny (update) A request from a user with auth.uid != userId to update another user's simulation data.
+     * @deny (delete) A request from a user with auth.uid != userId to delete another user's simulation data.
+     * @principle Enforces document ownership for all operations on simulation data.
+     */
+    match /users/{userId}/simulations/{simulationId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+          return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to electricity tariff information. Tariffs are publicly readable.
+     * @path /databases/{database}/documents/tariffs/{tariffId}
+     * @allow (get) Any authenticated user can read tariff information.
+     * @allow (list) Any authenticated user can list tariffs.
+     * @allow (create) No one can create tariffs.
+     * @allow (update) No one can update tariffs.
+     * @allow (delete) No one can delete tariffs.
+     * @deny (create) A request from any user to create a tariff will be denied.
+     * @deny (update) A request from any user to update a tariff will be denied.
+     * @deny (delete) A request from any user to delete a tariff will be denied.
+     * @principle Allows public read access to tariff data while restricting write access.
+     */
+    match /tariffs/{tariffId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
   }
 }

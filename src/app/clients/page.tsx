@@ -1,7 +1,7 @@
 'use client';
 
 import { useCollection } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, getCountFromServer } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -22,6 +22,7 @@ import React from 'react';
 
 export default function ClientsPage() {
   const firestore = useFirestore();
+  const [simulationCounts, setSimulationCounts] = React.useState<Record<string, number>>({});
 
   const usersQuery = React.useMemo(() => {
     if (!firestore) return null;
@@ -31,8 +32,31 @@ export default function ClientsPage() {
     return q;
   }, [firestore]);
 
-
   const { data: users, isLoading } = useCollection<any>(usersQuery);
+
+  // Count simulations for each user
+  React.useEffect(() => {
+    if (!firestore || !users) return;
+
+    const countSimulations = async () => {
+      const counts: Record<string, number> = {};
+      
+      for (const user of users) {
+        try {
+          const simulationsQuery = query(collection(firestore, `users/${user.id}/simulations`));
+          const snapshot = await getCountFromServer(simulationsQuery);
+          counts[user.id] = snapshot.data().count;
+        } catch (error) {
+          console.error(`Error counting simulations for user ${user.id}:`, error);
+          counts[user.id] = 0;
+        }
+      }
+      
+      setSimulationCounts(counts);
+    };
+
+    countSimulations();
+  }, [firestore, users]);
 
   const getInitials = (firstName = '', lastName = '') => {
     return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
@@ -110,8 +134,9 @@ export default function ClientsPage() {
                         </TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
-                           {/* This would require a count subcollection or similar */}
-                           <Badge variant="secondary">0</Badge>
+                           <Badge variant="secondary">
+                             {simulationCounts[user.id] || 0}
+                           </Badge>
                         </TableCell>
                         <TableCell className="text-center">
                           <Button asChild variant="outline" size="sm">
