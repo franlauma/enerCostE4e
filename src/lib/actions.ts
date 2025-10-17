@@ -75,7 +75,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     // Convert sheet to a 2D array to find the "Datos lecturas" section
     const rawData: any[][] = xlsx.utils.sheet_to_json(sheet, { header: 1 });
 
-    const lecturasHeaderIndex = rawData.findIndex(row => row[0] === 'Datos lecturas');
+    const lecturasHeaderIndex = rawData.findIndex(row => row.some(cell => cell === 'Datos lecturas'));
     
     if (lecturasHeaderIndex === -1) {
         throw new Error("No se encontró la sección 'Datos lecturas' en el archivo.");
