@@ -23,9 +23,12 @@ type ActionResponse = {
 // Helper function to read tariffs from Firestore.
 // We use a server-side initialized Firebase app for this.
 async function getTariffsFromFirestore(): Promise<Tariff[]> {
-    const { firestore } = initializeFirebase();
+    const { firestore } = await initializeFirebase();
     const tariffsCol = collection(firestore, 'tariffs');
     const snapshot = await getDocs(tariffsCol);
+    if (snapshot.empty) {
+        return [];
+    }
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tariff));
 }
 
@@ -51,7 +54,7 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
         return {
             success: false,
             error: errorMessages?.[0] || 'Error de validación.',
-            helpMessage: "Asegúrate de seleccionar un archivo Excel (.xlsx, .xls) que no esté vacío. El archivo debe contener la pestaña 'Consumo' con los datos correctos para que podamos procesarlo.",
+            helpMessage: "Asegúrate de seleccionar un archivo Excel (.xlsx, .xls) que no esté vacío. El archivo debe contener los datos correctos para que podamos procesarlo.",
             aiSummary: null,
         };
     }
@@ -61,15 +64,50 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     const file = validatedFields.data.file;
     const buffer = await file.arrayBuffer();
     const workbook = xlsx.read(buffer, { type: 'buffer' });
-
-    // 1. Read consumption data from 'Consumo' sheet
-    const consumptionSheet = workbook.Sheets['Consumo'];
-    if (!consumptionSheet) {
-      throw new Error("No se encontró la pestaña 'Consumo' en el archivo Excel.");
+    
+    // For this complex file, we assume data is on the first sheet
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) {
+        throw new Error("No se encontraron hojas en el archivo Excel.");
     }
-    const consumptionData: { Mes: string; Consumo_kWh: number }[] = xlsx.utils.sheet_to_json(consumptionSheet);
-    const totalKwh = consumptionData.reduce((acc, row) => acc + row.Consumo_kWh, 0);
-    const userCurrentTariffName = 'Tu Compañía Actual';
+    
+    // Convert sheet to a 2D array to find the "Datos lecturas" section
+    const rawData: any[][] = xlsx.utils.sheet_to_json(sheet, { header: 1 });
+
+    const lecturasHeaderIndex = rawData.findIndex(row => row[0] === 'Datos lecturas');
+    
+    if (lecturasHeaderIndex === -1) {
+        throw new Error("No se encontró la sección 'Datos lecturas' en el archivo.");
+    }
+    
+    // The actual data starts a few rows after the "Datos lecturas" header
+    const headersRowIndex = lecturasHeaderIndex + 2;
+    const dataRows = rawData.slice(headersRowIndex + 1);
+    
+    // Map headers to their column index
+    const headers: string[] = rawData[headersRowIndex].map((h: any) => String(h));
+    const consumoP1Index = headers.indexOf('Consumo Activa P1');
+    const consumoP2Index = headers.indexOf('Consumo Activa P2');
+    const consumoP3Index = headers.indexOf('Consumo Activa P3');
+
+    if (consumoP1Index === -1 || consumoP2Index === -1 || consumoP3Index === -1) {
+        throw new Error("No se encontraron las columnas de consumo ('Consumo Activa P1', 'P2', 'P3') en la sección 'Datos lecturas'.");
+    }
+
+    let totalKwh = 0;
+    for (const row of dataRows) {
+        if (!row || row.length === 0 || !row[0]) continue; // Skip empty/invalid rows
+
+        const p1 = parseFloat(String(row[consumoP1Index]).replace(',', '.')) || 0;
+        const p2 = parseFloat(String(row[consumoP2Index]).replace(',', '.')) || 0;
+        const p3 = parseFloat(String(row[consumoP3Index]).replace(',', '.')) || 0;
+        totalKwh += p1 + p2 + p3;
+    }
+
+    if (totalKwh === 0) {
+        throw new Error("No se pudo calcular un consumo total a partir del archivo. Verifique que los datos de consumo son correctos.");
+    }
 
     // 2. Read tariffs from Firestore
     const availableTariffs = await getTariffsFromFirestore();
@@ -77,12 +115,14 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
         throw new Error("No hay tarifas configuradas en la base de datos. Por favor, añada tarifas en la página de 'Tarifas'.");
     }
 
+    // This is a placeholder as the user's current company is not in this file format
+    const userCurrentTariffName = 'Tu Compañía Actual';
+
     // 3. Calculate cost for each tariff
     let details: CompanyCost[] = availableTariffs.map((tariff, index) => {
       const fixedFee = tariff.fixedTerm * 12;
       const consumptionCost = tariff.priceKwh * totalKwh;
-      // Note: 'otherCosts' are not in the file, so we'll use a placeholder or assume 0
-      const otherCosts = 25.00 + (index * 2); // Placeholder logic
+      const otherCosts = 25.00 + (index * 2); // Placeholder logic for other costs
       const totalCost = fixedFee + consumptionCost + otherCosts;
       
       return {
@@ -146,11 +186,23 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
 
   } catch(error: any) {
     console.error("Simulation failed:", error);
-    return {
-      success: false,
-      error: error.message || 'Error al procesar el archivo Excel.',
-      helpMessage: "Asegúrate de que el archivo Excel tiene el formato correcto, incluyendo una pestaña llamada 'Consumo' con las columnas 'Mes' y 'Consumo_kWh'.",
-      aiSummary: null
+    const issueDescription = `El usuario subió un archivo, pero falló el procesamiento con el error: ${error.message}. El formato del archivo podría ser incorrecto o estar corrupto.`;
+    
+    try {
+        const help = await getContextualHelp({ issueDescription });
+        return {
+            success: false,
+            error: error.message || 'Error al procesar el archivo Excel.',
+            helpMessage: help.helpMessage,
+            aiSummary: null,
+        };
+    } catch (aiError) {
+         return {
+            success: false,
+            error: error.message || 'Error al procesar el archivo Excel.',
+            helpMessage: "Asegúrate de que el archivo Excel no esté corrupto y que contenga una sección 'Datos lecturas' con las columnas 'Consumo Activa P1', 'Consumo Activa P2' y 'Consumo Activa P3'.",
+            aiSummary: null
+        }
     }
   }
 }
