@@ -31,7 +31,17 @@ import { useCollection, useFirestore } from '@/firebase';
 import { collection, query, addDoc, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const EMPTY_TARIFF: Omit<Tariff, 'id'> = { companyName: '', priceKwh: 0, fixedTerm: 0, promo: '' };
+const EMPTY_TARIFF: Omit<Tariff, 'id'> = { 
+    companyName: '', 
+    priceKwhP1: 0, 
+    priceKwhP2: 0, 
+    priceKwhP3: 0, 
+    priceKwhP4: 0, 
+    priceKwhP5: 0, 
+    priceKwhP6: 0, 
+    fixedTerm: 0, 
+    promo: '' 
+};
 
 export default function TariffsPage() {
   const firestore = useFirestore();
@@ -73,32 +83,39 @@ export default function TariffsPage() {
     if (!firestore) return;
     setIsSaving(true);
     // Validate inputs
-    if (!editedTariff.companyName || editedTariff.priceKwh! <= 0 || editedTariff.fixedTerm! < 0) {
+    const requiredPrices = [editedTariff.priceKwhP1, editedTariff.priceKwhP2, editedTariff.priceKwhP3, editedTariff.priceKwhP4, editedTariff.priceKwhP5, editedTariff.priceKwhP6];
+    if (!editedTariff.companyName || editedTariff.fixedTerm! < 0 || requiredPrices.some(p => p === undefined || p <= 0)) {
       toast({
         variant: "destructive",
         title: 'Error de validación',
-        description: 'Por favor, completa todos los campos correctamente.',
+        description: 'El nombre y todos los precios P1-P6 deben ser rellenados y mayores que 0.',
       });
       setIsSaving(false);
       return;
     }
 
     try {
+      const tariffData = {
+        companyName: editedTariff.companyName!,
+        priceKwhP1: editedTariff.priceKwhP1!,
+        priceKwhP2: editedTariff.priceKwhP2!,
+        priceKwhP3: editedTariff.priceKwhP3!,
+        priceKwhP4: editedTariff.priceKwhP4!,
+        priceKwhP5: editedTariff.priceKwhP5!,
+        priceKwhP6: editedTariff.priceKwhP6!,
+        fixedTerm: editedTariff.fixedTerm!,
+        promo: editedTariff.promo || '',
+      };
+
       if(isAdding) {
-        const newTariffData = {
-          companyName: editedTariff.companyName!,
-          priceKwh: editedTariff.priceKwh!,
-          fixedTerm: editedTariff.fixedTerm!,
-          promo: editedTariff.promo || '',
-        };
-        const docRef = await addDoc(collection(firestore, 'tariffs'), newTariffData);
+        await addDoc(collection(firestore, 'tariffs'), tariffData);
         toast({
           title: 'Tarifa añadida',
-          description: `La tarifa de ${newTariffData.companyName} se ha añadido correctamente.`,
+          description: `La tarifa de ${tariffData.companyName} se ha añadido correctamente.`,
         });
       } else if (editingId) {
         const docRef = doc(firestore, 'tariffs', editingId);
-        await updateDoc(docRef, editedTariff);
+        await updateDoc(docRef, tariffData);
         toast({
           title: 'Tarifa guardada',
           description: 'Los cambios en la tarifa se han guardado correctamente.',
@@ -138,7 +155,7 @@ export default function TariffsPage() {
   }
 
   const handleInputChange = (field: keyof Tariff, value: string) => {
-    const isNumeric = ['priceKwh', 'fixedTerm'].includes(field);
+    const isNumeric = !['companyName', 'promo', 'id'].includes(field);
     setEditedTariff({
       ...editedTariff,
       [field]: isNumeric ? Number(value) : value,
@@ -148,6 +165,18 @@ export default function TariffsPage() {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value);
   };
+  
+  const renderInput = (field: keyof Tariff, placeholder: string) => (
+     <Input
+        type="number"
+        value={editedTariff[field] as number || ''}
+        onChange={(e) => handleInputChange(field, e.target.value)}
+        className="h-8 w-24 text-right ml-auto bg-background"
+        placeholder={placeholder}
+        disabled={isSaving}
+    />
+  );
+
 
   const renderEditRow = (tariff: Partial<Tariff>) => (
     <TableRow className="bg-muted/50">
@@ -156,30 +185,17 @@ export default function TariffsPage() {
             value={tariff.companyName || ''}
             onChange={(e) => handleInputChange('companyName', e.target.value)}
             className="h-8 bg-background"
-            placeholder="Nombre de la compañía"
+            placeholder="Nombre compañía"
             disabled={isSaving}
             />
         </TableCell>
-        <TableCell className="text-right">
-            <Input
-            type="number"
-            value={tariff.priceKwh || ''}
-            onChange={(e) => handleInputChange('priceKwh', e.target.value)}
-            className="h-8 w-24 text-right ml-auto bg-background"
-            placeholder="0.15"
-            disabled={isSaving}
-            />
-        </TableCell>
-        <TableCell className="text-right">
-            <Input
-            type="number"
-            value={tariff.fixedTerm || ''}
-            onChange={(e) => handleInputChange('fixedTerm', e.target.value)}
-            className="h-8 w-24 text-right ml-auto bg-background"
-            placeholder="5.00"
-            disabled={isSaving}
-            />
-        </TableCell>
+        <TableCell className="text-right">{renderInput('priceKwhP1', '0.15')}</TableCell>
+        <TableCell className="text-right">{renderInput('priceKwhP2', '0.14')}</TableCell>
+        <TableCell className="text-right">{renderInput('priceKwhP3', '0.12')}</TableCell>
+        <TableCell className="text-right">{renderInput('priceKwhP4', '0.11')}</TableCell>
+        <TableCell className="text-right">{renderInput('priceKwhP5', '0.10')}</TableCell>
+        <TableCell className="text-right">{renderInput('priceKwhP6', '0.09')}</TableCell>
+        <TableCell className="text-right">{renderInput('fixedTerm', '5.00')}</TableCell>
         <TableCell>
             <Input
             value={tariff.promo || ''}
@@ -206,10 +222,9 @@ export default function TariffsPage() {
     if (areTariffsLoading) {
       return Array.from({ length: 4 }).map((_, i) => (
         <TableRow key={i}>
-            <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-            <TableCell><Skeleton className="h-5 w-20 ml-auto" /></TableCell>
-            <TableCell><Skeleton className="h-5 w-20 ml-auto" /></TableCell>
             <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+            {Array.from({ length: 7 }).map((_, j) => <TableCell key={j}><Skeleton className="h-5 w-16 ml-auto" /></TableCell>)}
+            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
             <TableCell><Skeleton className="h-8 w-20 mx-auto" /></TableCell>
         </TableRow>
       ));
@@ -217,7 +232,7 @@ export default function TariffsPage() {
     if (!tariffs || tariffs.length === 0) {
         return (
             <TableRow>
-                <TableCell colSpan={5} className="text-center h-24">
+                <TableCell colSpan={10} className="text-center h-24">
                     No hay tarifas configuradas. Se crearán automáticamente al realizar una simulación.
                 </TableCell>
             </TableRow>
@@ -228,7 +243,12 @@ export default function TariffsPage() {
         <TableRow key={tariff.id}>
             <>
                 <TableCell className="font-medium">{tariff.companyName}</TableCell>
-                <TableCell className="text-right">{formatCurrency(tariff.priceKwh)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(tariff.priceKwhP1)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(tariff.priceKwhP2)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(tariff.priceKwhP3)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(tariff.priceKwhP4)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(tariff.priceKwhP5)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(tariff.priceKwhP6)}</TableCell>
                 <TableCell className="text-right">{formatCurrency(tariff.fixedTerm)}</TableCell>
                 <TableCell>{tariff.promo}</TableCell>
                 <TableCell className="text-center">
@@ -276,7 +296,7 @@ export default function TariffsPage() {
           <CardHeader>
             <CardTitle className="font-headline">Tarifas Eléctricas</CardTitle>
             <CardDescription>
-              Aquí puedes ver, editar, añadir o eliminar las tarifas de las compañías eléctricas que se utilizan en la simulación.
+              Aquí puedes ver y gestionar las tarifas eléctricas con discriminación horaria (P1 a P6).
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -285,8 +305,13 @@ export default function TariffsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Compañía</TableHead>
-                    <TableHead className="text-right">Precio kWh</TableHead>
-                    <TableHead className="text-right">Término Fijo (€/mes)</TableHead>
+                    <TableHead className="text-right">€/kWh P1</TableHead>
+                    <TableHead className="text-right">€/kWh P2</TableHead>
+                    <TableHead className="text-right">€/kWh P3</TableHead>
+                    <TableHead className="text-right">€/kWh P4</TableHead>
+                    <TableHead className="text-right">€/kWh P5</TableHead>
+                    <TableHead className="text-right">€/kWh P6</TableHead>
+                    <TableHead className="text-right">Fijo (€/mes)</TableHead>
                     <TableHead>Promoción</TableHead>
                     <TableHead className="w-[120px] text-center">Acciones</TableHead>
                   </TableRow>

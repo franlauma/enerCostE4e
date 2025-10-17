@@ -71,7 +71,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Tariff",
       "type": "object",
-      "description": "Represents an electricity tariff from a provider.",
+      "description": "Represents an electricity tariff from a provider with time-of-day pricing.",
       "properties": {
         "id": {
           "type": "string",
@@ -81,9 +81,29 @@
           "type": "string",
           "description": "Name of the energy provider."
         },
-        "priceKwh": {
+        "priceKwhP1": {
           "type": "number",
-          "description": "Cost per kilowatt-hour."
+          "description": "Cost per kilowatt-hour for period 1 (Punta)."
+        },
+        "priceKwhP2": {
+          "type": "number",
+          "description": "Cost per kilowatt-hour for period 2 (Llano)."
+        },
+        "priceKwhP3": {
+          "type": "number",
+          "description": "Cost per kilowatt-hour for period 3 (Valle)."
+        },
+        "priceKwhP4": {
+          "type": "number",
+          "description": "Cost per kilowatt-hour for period 4."
+        },
+        "priceKwhP5": {
+          "type": "number",
+          "description": "Cost per kilowatt-hour for period 5."
+        },
+        "priceKwhP6": {
+          "type": "number",
+          "description": "Cost per kilowatt-hour for period 6."
         },
         "fixedTerm": {
           "type": "number",
@@ -94,7 +114,17 @@
           "description": "Description of any current promotion."
         }
       },
-      "required": ["id", "companyName", "priceKwh", "fixedTerm"]
+      "required": [
+        "id",
+        "companyName",
+        "priceKwhP1",
+        "priceKwhP2",
+        "priceKwhP3",
+        "priceKwhP4",
+        "priceKwhP5",
+        "priceKwhP6",
+        "fixedTerm"
+      ]
     }
   },
   "auth": {

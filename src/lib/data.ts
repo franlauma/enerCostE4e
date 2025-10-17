@@ -10,6 +10,12 @@ export type CompanyCost = {
 
 export type SimulationResult = {
   summary: {
+    totalKwhP1: number;
+    totalKwhP2: number;
+    totalKwhP3: number;
+    totalKwhP4: number;
+    totalKwhP5: number;
+    totalKwhP6: number;
     totalKwh: number;
     period: string;
     bestOption: {
@@ -23,6 +29,12 @@ export type SimulationResult = {
 export const MOCK_SIMULATION_RESULT: SimulationResult = {
   summary: {
     totalKwh: 3450,
+    totalKwhP1: 1000,
+    totalKwhP2: 1200,
+    totalKwhP3: 1250,
+    totalKwhP4: 0,
+    totalKwhP5: 0,
+    totalKwhP6: 0,
     period: '01/01/2023 - 31/12/2023',
     bestOption: {
       companyName: 'EcoLuz',
@@ -81,15 +93,20 @@ export const MOCK_SIMULATION_RESULT: SimulationResult = {
 export type Tariff = {
   id: string;
   companyName: string;
-  priceKwh: number;
+  priceKwhP1: number;
+  priceKwhP2: number;
+  priceKwhP3: number;
+  priceKwhP4: number;
+  priceKwhP5: number;
+  priceKwhP6: number;
   fixedTerm: number;
   promo: string;
 };
 
 export const MOCK_TARIFFS: Omit<Tariff, 'id'>[] = [
-    { companyName: 'Tu Compañía Actual', priceKwh: 0.20, fixedTerm: 5.83, promo: 'Tarifa Base' },
-    { companyName: 'EcoLuz', priceKwh: 0.13, fixedTerm: 5.00, promo: '20% dto. 6 meses' },
-    { companyName: 'Energía Clara', priceKwh: 0.148, fixedTerm: 4.58, promo: 'Precio fijo' },
-    { companyName: 'Solaria Power', priceKwh: 0.142, fixedTerm: 5.42, promo: 'Sin permanencia' },
-    { companyName: 'Iberdrola', priceKwh: 0.18, fixedTerm: 6.67, promo: 'Plan Noche' },
+    { companyName: 'Tu Compañía Actual', priceKwhP1: 0.22, priceKwhP2: 0.20, priceKwhP3: 0.18, priceKwhP4: 0.17, priceKwhP5: 0.16, priceKwhP6: 0.15, fixedTerm: 5.83, promo: 'Tarifa Base' },
+    { companyName: 'EcoLuz', priceKwhP1: 0.15, priceKwhP2: 0.14, priceKwhP3: 0.13, priceKwhP4: 0.12, priceKwhP5: 0.11, priceKwhP6: 0.10, fixedTerm: 5.00, promo: '20% dto. 6 meses' },
+    { companyName: 'Energía Clara', priceKwhP1: 0.16, priceKwhP2: 0.15, priceKwhP3: 0.14, priceKwhP4: 0.13, priceKwhP5: 0.12, priceKwhP6: 0.11, fixedTerm: 4.58, promo: 'Precio fijo' },
+    { companyName: 'Solaria Power', priceKwhP1: 0.155, priceKwhP2: 0.145, priceKwhP3: 0.135, priceKwhP4: 0.125, priceKwhP5: 0.115, priceKwhP6: 0.105, fixedTerm: 5.42, promo: 'Sin permanencia' },
+    { companyName: 'Iberdrola', priceKwhP1: 0.20, priceKwhP2: 0.19, priceKwhP3: 0.18, priceKwhP4: 0.17, priceKwhP5: 0.16, priceKwhP6: 0.15, fixedTerm: 6.67, promo: 'Plan Noche' },
 ];
