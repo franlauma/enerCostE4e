@@ -5,7 +5,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user of the E4e soluciones - Simulación factura application.",
+      "description": "Represents a user of the E4e soluciones - simulador de ahorros application.",
       "properties": {
         "id": {
           "type": "string",

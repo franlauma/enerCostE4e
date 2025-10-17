@@ -1,4 +1,4 @@
-# **App Name**: E4e soluciones - Simulación factura
+# **App Name**: E4e soluciones - simulador de ahorros
 
 ## Core Features:
 

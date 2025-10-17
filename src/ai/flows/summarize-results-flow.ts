@@ -36,7 +36,7 @@ const prompt = ai.definePrompt({
   name: 'summarizeResultsPrompt',
   input: { schema: SummarizeResultsInputSchema },
   output: { schema: SummarizeResultsOutputSchema },
-  prompt: `You are an AI assistant in the E4e soluciones - Simulación factura app. Your task is to generate a short, encouraging, and easy-to-understand summary of an energy cost simulation. Use a friendly and professional tone.
+  prompt: `You are an AI assistant in the E4e soluciones - simulador de ahorros app. Your task is to generate a short, encouraging, and easy-to-understand summary of an energy cost simulation. Use a friendly and professional tone.
 
 The user's current provider is '{{{currentCompanyName}}}'.
 The simulation, based on a total consumption of {{{totalConsumptionKwh}}} kWh, found that '{{{bestOptionCompanyName}}}' is the most economical option.

@@ -7,7 +7,7 @@ import Footer from '@/components/layout/footer';
 import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
-  title: 'E4e soluciones - Simulación factura',
+  title: 'E4e soluciones - simulador de ahorros',
   description: 'Analiza y compara tus costes de factura eléctrica.',
 };
 

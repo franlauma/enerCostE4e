@@ -1,7 +1,7 @@
 'use client';
 
-import { firebaseConfig } from '@/firebase/config';
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { firebaseConfig as fallbackFirebaseConfig } from '@/firebase/config';
+import { initializeApp, getApps, getApp, FirebaseApp, FirebaseOptions } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
 
@@ -17,12 +17,23 @@ export function initializeFirebase() {
       // Attempt to initialize via Firebase App Hosting environment variables
       firebaseApp = initializeApp();
     } catch (e) {
-      // Only warn in production because it's normal to use the firebaseConfig to initialize
-      // during development
-      if (process.env.NODE_ENV === "production") {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
-      }
-      firebaseApp = initializeApp(firebaseConfig);
+      // Fallback a variables de entorno (NEXT_PUBLIC_*) y, si no están, a config.ts
+      const envConfig: FirebaseOptions = {
+        apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+        authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+        messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+        measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+      };
+
+      const hasEnvConfig = Boolean(
+        envConfig.apiKey && envConfig.authDomain && envConfig.projectId && envConfig.appId
+      );
+
+      const usedConfig: FirebaseOptions = hasEnvConfig ? envConfig : fallbackFirebaseConfig;
+
+      firebaseApp = initializeApp(usedConfig);
     }
 
     return getSdks(firebaseApp);
