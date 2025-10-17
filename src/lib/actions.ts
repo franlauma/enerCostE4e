@@ -101,8 +101,36 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
     let rawData: any[][];
 
     // Check if it's a CSV or Excel file
-    if (file.type === 'text/csv' || file.name.endsWith('.csv') || file.type.includes('spreadsheetml') || file.name.endsWith('.xls') || file.name.endsWith('.xlsx')) {
-      try {
+    if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+         try {
+            // Attempt to decode with different common encodings
+            const decoders = [
+                new TextDecoder('utf-8'),
+                new TextDecoder('latin1'),
+                new TextDecoder('utf-16le'),
+                new TextDecoder('utf-16be')
+            ];
+            let decodedText = '';
+            for (const decoder of decoders) {
+                try {
+                    decodedText = decoder.decode(buffer);
+                    // A simple heuristic to check if decoding was successful
+                    if (decodedText.includes(';')) {
+                        break;
+                    }
+                } catch (e) {
+                    // try next decoder
+                }
+            }
+             if (!decodedText) {
+                throw new Error("No se pudo decodificar el archivo CSV. Pruebe a guardarlo con codificación UTF-8.");
+            }
+            rawData = parseCsv(decodedText);
+        } catch (e: any) {
+            throw new Error(`Error al procesar el archivo CSV: ${e.message}`);
+        }
+
+    } else if (file.type.includes('spreadsheetml') || file.name.endsWith('.xls') || file.name.endsWith('.xlsx')) {
         const workbook = xlsx.read(buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
@@ -110,11 +138,8 @@ export async function simulateCost(formData: FormData): Promise<ActionResponse> 
             throw new Error("No se encontraron hojas en el archivo Excel.");
         }
         rawData = xlsx.utils.sheet_to_json(sheet, { header: 1 });
-      } catch (e) {
-          const text = new TextDecoder('utf-16le').decode(buffer);
-          rawData = parseCsv(text);
-      }
-    } else {
+    }
+    else {
         throw new Error("Formato de archivo no soportado. Por favor, sube un archivo Excel o CSV.");
     }
 
