@@ -5,8 +5,16 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
 
+function getSdks(firebaseApp: FirebaseApp) {
+  return {
+    firebaseApp,
+    auth: getAuth(firebaseApp),
+    firestore: getFirestore(firebaseApp)
+  };
+}
+
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
-export function initializeFirebase() {
+export async function initializeFirebase() {
   if (!getApps().length) {
     // Important! initializeApp() is called without any arguments because Firebase App Hosting
     // integrates with the initializeApp() function to provide the environment variables needed to
@@ -30,12 +38,4 @@ export function initializeFirebase() {
 
   // If already initialized, return the SDKs with the already initialized App
   return getSdks(getApp());
-}
-
-export function getSdks(firebaseApp: FirebaseApp) {
-  return {
-    firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp)
-  };
 }
