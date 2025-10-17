@@ -1,0 +1,74 @@
+/**
+ * @fileoverview Firestore Security Rules for EnerCost Analyzer.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for both user profiles and simulation data.  Each user has exclusive access to their own data.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profile information. Document ID is the user's Firebase Auth UID.
+ * - /users/{userId}/simulations/{simulationId}: Stores simulation data associated with a specific user.
+ *
+ * Key Security Decisions:
+ * - User listing is explicitly denied to protect user privacy.
+ * - All data is private to the owning user.
+ * - The rules are structured to avoid costly `get()` calls by relying on path-based authorization.
+ * - Data shape validation is relaxed in prototyping mode to allow for rapid iteration.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Controls access to user profile documents.
+     * @path /users/{userId}
+     * @allow (create) - User with UID 'user_abc' can create their profile document if the document ID matches their UID.
+     * @deny (create) - User with UID 'user_def' cannot create a profile document with ID 'user_abc'.
+     * @allow (get, update, delete) - User with UID 'user_abc' can read, update, and delete their profile document (ID 'user_abc').
+     * @deny (get, update, delete) - User with UID 'user_def' cannot read, update, or delete the profile document of user 'user_abc'.
+     * @deny (list) Listing users is not allowed.
+     * @principle Enforces document ownership for user profiles and prevents unauthorized access.
+     */
+    match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isSignedIn() && isOwner(userId) && resource != null && request.resource.data.id == resource.data.id;
+      allow delete: if isSignedIn() && isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Controls access to simulation documents within a user's profile.
+     * @path /users/{userId}/simulations/{simulationId}
+     * @allow (create) - User with UID 'user_abc' can create a simulation document under their profile (ID 'user_abc').
+     * @deny (create) - User with UID 'user_def' cannot create a simulation document under user 'user_abc''s profile.
+     * @allow (get, update, delete) - User with UID 'user_abc' can read, update, and delete their own simulation documents.
+     * @deny (get, update, delete) - User with UID 'user_def' cannot read, update, or delete simulation documents under user 'user_abc''s profile.
+     * @allow (list) - User with UID 'user_abc' can list their own simulation documents.
+     * @deny (list) - User with UID 'user_def' cannot list simulation documents under user 'user_abc''s profile.
+     * @principle Enforces document ownership for simulation data, ensuring users can only access their own simulations.
+     */
+    match /users/{userId}/simulations/{simulationId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+       function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isSignedIn() && isOwner(userId) && resource != null && request.resource.data.userId == userId;
+      allow delete: if isSignedIn() && isOwner(userId) && resource != null;
+    }
+  }
+}
